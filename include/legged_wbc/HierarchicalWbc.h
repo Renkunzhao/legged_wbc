@@ -11,7 +11,8 @@ class HierarchicalWbc : public WbcBase {
  public:
   using WbcBase::WbcBase;
 
-  vector_t update(const vector_t& stateDesired, const vector_t& inputDesired, const vector_t& rbdStateMeasured, size_t mode,
+  vector_t update(const vector_t& qDesired, const vector_t& vDesired, const vector_t& fDesired,
+                  const vector_t& qMeasured, const vector_t& vMeasured, std::array<bool, 4> contactFlag,
                   scalar_t period, std::string method) override;
 };
 

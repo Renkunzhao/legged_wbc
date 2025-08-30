@@ -1,18 +1,16 @@
 //
-// Created by qiayuan on 2022/6/28.
+// Created by Kunzhao Ren on 2025/8/28.
 //
-//
-// Ref: https://github.com/bernhardpg/quadruped_locomotion
+// Ref: https://github.com/qiayuanl/legged_control.git
 //
 
 #pragma once
 
-#include <ocs2_core/Types.h>
+#include "legged_wbc/Types.h"
 
 #include <utility>
 
 namespace legged {
-using namespace ocs2;
 
 class Task {
  public:

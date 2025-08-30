@@ -5,14 +5,12 @@
 #pragma once
 
 #include "legged_wbc/Task.h"
+#include "legged_wbc/LeggedModel.h"
+#include "legged_wbc/Types.h"
 
-#include <ocs2_centroidal_model/PinocchioCentroidalDynamics.h>
-#include <ocs2_legged_robot/gait/MotionPhaseDefinition.h>
-#include <ocs2_pinocchio_interface/PinocchioEndEffectorKinematics.h>
+#include <array>
 
 namespace legged {
-using namespace ocs2;
-using namespace legged_robot;
 
 // Decision Variables: x = [\dot u^T, F^T, \tau^T]^T
 class WbcBase {
@@ -20,16 +18,17 @@ class WbcBase {
   using Matrix6 = Eigen::Matrix<scalar_t, 6, 6>;
 
  public:
-  WbcBase(const PinocchioInterface& pinocchioInterface, CentroidalModelInfo info, const PinocchioEndEffectorKinematics& eeKinematics);
+  WbcBase();
 
-  virtual void loadTasksSetting(const std::string& taskFile, bool verbose);
+  virtual void loadTasksSetting(const std::string& configFile, bool verbose);
 
-  virtual vector_t update(const vector_t& stateDesired, const vector_t& inputDesired, const vector_t& rbdStateMeasured, size_t mode,
+  virtual vector_t update(const vector_t& qDesired, const vector_t& vDesired, const vector_t& fDesired,
+                          const vector_t& qMeasured, const vector_t& vMeasured, std::array<bool, 4> contactFlag,
                           scalar_t period, std::string method = "centroidal");
 
  protected:
-  void updateMeasured(const vector_t& rbdStateMeasured);
-  void updateDesired(const vector_t& stateDesired, const vector_t& inputDesired);
+  void updateMeasured();
+  void updateDesired();
 
   size_t getNumDecisionVars() const { return numDecisionVars_; }
 
@@ -37,25 +36,24 @@ class WbcBase {
   Task formulateTorqueLimitsTask();
   Task formulateNoContactMotionTask();
   Task formulateFrictionConeTask();
-  Task formulateBaseAccelTask(const vector_t& stateDesired, const vector_t& inputDesired, scalar_t period);
-  Task formulateBaseAccelTaskPD(const vector_t& stateDesired, const vector_t& inputDesired, scalar_t period);
+  Task formulateBaseAccelTask(scalar_t period);
+  Task formulateBaseAccelTaskPD(scalar_t period);
   Task formulateSwingLegTask();
-  Task formulateContactForceTask(const vector_t& inputDesired) const;
+  Task formulateContactForceTask();
 
+  LeggedModel leggedModel;
   size_t numDecisionVars_;
-  PinocchioInterface pinocchioInterfaceMeasured_, pinocchioInterfaceDesired_;
-  CentroidalModelInfo info_;
 
-  std::unique_ptr<PinocchioEndEffectorKinematics> eeKinematics_;
-  CentroidalModelPinocchioMapping mapping_;
-
-  vector_t qMeasured_, vMeasured_, inputLast_;
-  matrix_t j_, dj_;
-  contact_flag_t contactFlag_{};
-  size_t numContacts_{};
+  size_t mass_;
+  vector_t qMeasured_, vMeasured_, qDesired_, vDesired_, vDesiredLast_, fDesired_;
+  size_t numContacts_;
+  std::array<bool, 4> contactFlag_;
+  matrix_t MMeasured_, nleMeasured_, jMeasured_, djMeasured_;
+  Eigen::Vector3d comDesired_;
+  matrix_t ADesired_, dADesired_;
 
   // Task Parameters:
-  vector_t torqueLimits_, baseAccelKp_{}, baseAccelKd_{};
+  vector_t torqueLimits_ = vector_t::Zero(3), baseAccelKp_ = vector_t::Zero(6), baseAccelKd_ = vector_t::Zero(6);
   scalar_t frictionCoeff_{}, swingKp_{}, swingKd_{};
 };
 

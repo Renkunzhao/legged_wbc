@@ -3,16 +3,15 @@
     <name>legged_wbc</name>
     <version>0.0.0</version>
     <description>Whole body control</description>
-    <maintainer email="liaoqiayuan@gmail.com">Qiayuan Liao</maintainer>
+    <maintainer email="rkzdtc@gmail.com">Kunzhao Ren</maintainer>
 
     <license>BSD</license>
-    <author email="liaoqiayuan@gmail.com">Qiayuan Liao</author>
+    <author email="rkzdtc@gmail.com">Kunzhao Ren</author>
 
     <buildtool_depend>catkin</buildtool_depend>
-
     <build_depend>cmake_clang_tools</build_depend>
+    
     <depend>roscpp</depend>
-    <depend>ocs2_legged_robot</depend>
     <depend>qpoases_catkin</depend>
     <depend>pinocchio</depend>
 </package>

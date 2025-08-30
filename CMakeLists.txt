@@ -6,12 +6,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(catkin REQUIRED
         COMPONENTS
         roscpp
-        ocs2_legged_robot
         qpoases_catkin
         )
 
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
+find_package(yaml-cpp REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(pinocchio REQUIRED pinocchio)
 
@@ -22,7 +22,6 @@ catkin_package(
         ${PROJECT_NAME}
         CATKIN_DEPENDS
         roscpp
-        ocs2_legged_robot
         DEPENDS
         pinocchio
 )
@@ -42,16 +41,34 @@ link_directories(
         ${pinocchio_LIBRARY_DIRS}
 )
 
+add_executable(LeggedState_test
+  test/LeggedState_test.cpp
+  src/LeggedState.cpp
+)
+
+target_link_libraries(LeggedState_test ${pinocchio_LIBRARIES})
+
+add_executable(LeggedModel_test
+  test/LeggedModel_test.cpp
+  src/LeggedState.cpp
+  src/LeggedModel.cpp
+)
+
+target_link_libraries(LeggedModel_test ${pinocchio_LIBRARIES})
+
 add_library(${PROJECT_NAME}
         src/HoQp.cpp
         src/WbcBase.cpp
         src/HierarchicalWbc.cpp
         src/WeightedWbc.cpp
+        src/LeggedState.cpp
+        src/LeggedModel.cpp
         )
 
 target_link_libraries(${PROJECT_NAME}
         ${catkin_LIBRARIES}
         ${pinocchio_LIBRARIES}
+        yaml-cpp
         )
 
 target_compile_options(${PROJECT_NAME} PUBLIC ${OCS2_CXX_FLAGS})

@@ -4,13 +4,15 @@
 
 #include "legged_wbc/WeightedWbc.h"
 
+#include <yaml-cpp/yaml.h>
 #include <qpOASES.hpp>
 
 namespace legged {
 
-vector_t WeightedWbc::update(const vector_t& stateDesired, const vector_t& inputDesired, const vector_t& rbdStateMeasured, size_t mode,
+vector_t WeightedWbc::update(const vector_t& qDesired, const vector_t& vDesired, const vector_t& fDesired,
+                             const vector_t& qMeasured, const vector_t& vMeasured, std::array<bool, 4> contactFlag,
                              scalar_t period, std::string method) {
-  WbcBase::update(stateDesired, inputDesired, rbdStateMeasured, mode, period);
+  WbcBase::update(qDesired, vDesired, fDesired, qMeasured, vMeasured, contactFlag, period);
 
   // Constraints
   Task constraints = formulateConstraints();
@@ -30,10 +32,10 @@ vector_t WeightedWbc::update(const vector_t& stateDesired, const vector_t& input
   // Cost
   if (method == "centroidal") {
     // Centroidal method
-    weighedTask = formulateWeightedTasks(stateDesired, inputDesired, period, "centroidal");
+    weighedTask = formulateWeightedTasks(period, "centroidal");
   } else if (method == "pd") {
     // PD method
-    weighedTask = formulateWeightedTasks(stateDesired, inputDesired, period, "pd");
+    weighedTask = formulateWeightedTasks(period, "pd");
   } else {
     return vector_t::Zero(getNumDecisionVars());
   }
@@ -61,29 +63,26 @@ Task WeightedWbc::formulateConstraints() {
   return formulateFloatingBaseEomTask() + formulateTorqueLimitsTask() + formulateFrictionConeTask() + formulateNoContactMotionTask();
 }
 
-Task WeightedWbc::formulateWeightedTasks(const vector_t& stateDesired, const vector_t& inputDesired, scalar_t period, std::string method) {
+Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
   if (method == "centroidal") {
-    return formulateSwingLegTask() * weightSwingLeg_ + formulateBaseAccelTask(stateDesired, inputDesired, period) * weightBaseAccel_ +
-          formulateContactForceTask(inputDesired) * weightContactForce_;
+    return formulateSwingLegTask() * weightSwingLeg_ + formulateBaseAccelTask(period) * weightBaseAccel_ +
+          formulateContactForceTask() * weightContactForce_;
   } else if (method == "pd") {
-    return formulateSwingLegTask() * weightSwingLeg_ + formulateBaseAccelTaskPD(stateDesired, inputDesired, period) * weightBaseAccel_ +
-      formulateContactForceTask(inputDesired) * weightContactForce_;
+    return formulateSwingLegTask() * weightSwingLeg_ + formulateBaseAccelTaskPD(period) * weightBaseAccel_ +
+      formulateContactForceTask() * weightContactForce_;
   }
 }
 
-void WeightedWbc::loadTasksSetting(const std::string& taskFile, bool verbose) {
-  WbcBase::loadTasksSetting(taskFile, verbose);
+void WeightedWbc::loadTasksSetting(const std::string& configFile, bool verbose) {
+  WbcBase::loadTasksSetting(configFile, verbose);
 
-  boost::property_tree::ptree pt;
-  boost::property_tree::read_info(taskFile, pt);
-  std::string prefix = "weight.";
-  if (verbose) {
-    std::cerr << "\n #### WBC weight:";
-    std::cerr << "\n #### =============================================================================\n";
-  }
-  loadData::loadPtreeValue(pt, weightSwingLeg_, prefix + "swingLeg", verbose);
-  loadData::loadPtreeValue(pt, weightBaseAccel_, prefix + "baseAccel", verbose);
-  loadData::loadPtreeValue(pt, weightContactForce_, prefix + "contactForce", verbose);
+  std::cout << "[WeightedWbc]: Load config from " << configFile << std::endl;
+  YAML::Node configNode = YAML::LoadFile(configFile);
+
+  weightBaseAccel_ = configNode["weight"]["baseAccel"].as<double>();
+  weightContactForce_ = configNode["weight"]["baseAccel"].as<double>();
+  weightSwingLeg_ = configNode["weight"]["swingLeg"].as<double>();
+  std::cout << "[WeightedWbc]: Config finished." << std::endl;
 }
 
 }  // namespace legged
