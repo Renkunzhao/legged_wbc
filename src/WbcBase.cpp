@@ -38,12 +38,12 @@ vector_t WbcBase::update(const vector_t& qDesired, const vector_t& vDesired, con
 }
 
 void WbcBase::updateMeasured() {
-  const auto& model = leggedModel.model();
-  auto& data = leggedModel.data();
+  const auto& model = leggedModel_.model();
+  auto& data = leggedModel_.data();
 
   // EOM Task
-  MMeasured_ = matrix_t(leggedModel.nDof(), leggedModel.nDof());
-  nleMeasured_ = vector_t(leggedModel.nDof());
+  MMeasured_ = matrix_t(leggedModel_.nDof(), leggedModel_.nDof());
+  nleMeasured_ = vector_t(leggedModel_.nDof());
   MMeasured_ = pinocchio::crba(model, data, qMeasured_);
   MMeasured_.triangularView<Eigen::StrictlyLower>() = MMeasured_.transpose().triangularView<Eigen::StrictlyLower>();
   nleMeasured_ = pinocchio::nonLinearEffects(model, data, qMeasured_, vMeasured_);
@@ -52,22 +52,22 @@ void WbcBase::updateMeasured() {
 
   // EOM Task & SwingLegTask & NoContactMotionTask
   pinocchio::computeJointJacobians(model, data);
-  jMeasured_ = matrix_t(3 * leggedModel.nContacts3Dof(), leggedModel.nDof());
-  for (size_t i = 0; i < leggedModel.nContacts3Dof(); ++i) {
+  jMeasured_ = matrix_t(3 * leggedModel_.nContacts3Dof(), leggedModel_.nDof());
+  for (size_t i = 0; i < leggedModel_.nContacts3Dof(); ++i) {
     Eigen::Matrix<scalar_t, 6, Eigen::Dynamic> jac;
-    jac.setZero(6, leggedModel.nDof());
-    pinocchio::getFrameJacobian(model, data, leggedModel.contact3DofIds()[i], pinocchio::LOCAL_WORLD_ALIGNED, jac);
-    jMeasured_.block(3 * i, 0, 3, leggedModel.nDof()) = jac.template topRows<3>();
+    jac.setZero(6, leggedModel_.nDof());
+    pinocchio::getFrameJacobian(model, data, leggedModel_.contact3DofIds()[i], pinocchio::LOCAL_WORLD_ALIGNED, jac);
+    jMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) = jac.template topRows<3>();
   }
 
   // SwingLegTask & NoContactMotionTask
   pinocchio::computeJointJacobiansTimeVariation(model, data, qMeasured_, vMeasured_);
-  djMeasured_ = matrix_t(3 * leggedModel.nContacts3Dof(), leggedModel.nDof());
-  for (size_t i = 0; i < leggedModel.nContacts3Dof(); ++i) {
+  djMeasured_ = matrix_t(3 * leggedModel_.nContacts3Dof(), leggedModel_.nDof());
+  for (size_t i = 0; i < leggedModel_.nContacts3Dof(); ++i) {
     Eigen::Matrix<scalar_t, 6, Eigen::Dynamic> jac;
-    jac.setZero(6, leggedModel.nDof());
-    pinocchio::getFrameJacobianTimeVariation(model, data, leggedModel.contact3DofIds()[i], pinocchio::LOCAL_WORLD_ALIGNED, jac);
-    djMeasured_.block(3 * i, 0, 3, leggedModel.nDof()) = jac.template topRows<3>();
+    jac.setZero(6, leggedModel_.nDof());
+    pinocchio::getFrameJacobianTimeVariation(model, data, leggedModel_.contact3DofIds()[i], pinocchio::LOCAL_WORLD_ALIGNED, jac);
+    djMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) = jac.template topRows<3>();
   }
 
   if(verbose_) {
@@ -79,13 +79,13 @@ void WbcBase::updateMeasured() {
 }
 
 void WbcBase::updateDesired() {
-  const auto& model = leggedModel.model();
-  auto& data = leggedModel.data();
+  const auto& model = leggedModel_.model();
+  auto& data = leggedModel_.data();
 
   comDesired_ = pinocchio::centerOfMass(model, data, qDesired_);
 
-  ADesired_ = matrix_t(6, leggedModel.nDof());
-  dADesired_ = matrix_t(6, leggedModel.nDof());
+  ADesired_ = matrix_t(6, leggedModel_.nDof());
+  dADesired_ = matrix_t(6, leggedModel_.nDof());
   ADesired_ = pinocchio::computeCentroidalMap(model, data, qDesired_);
   dADesired_ = pinocchio::dccrba(model, data, qDesired_, vDesired_);
 
@@ -96,11 +96,11 @@ void WbcBase::updateDesired() {
 }
 
 Task WbcBase::formulateFloatingBaseEomTask() {
-  matrix_t s(leggedModel.nJoints(), leggedModel.nDof());
-  s.block(0, 0, leggedModel.nJoints(), 6).setZero();
-  s.block(0, 6, leggedModel.nJoints(), leggedModel.nJoints()).setIdentity();
+  matrix_t s(leggedModel_.nJoints(), leggedModel_.nDof());
+  s.block(0, 0, leggedModel_.nJoints(), 6).setZero();
+  s.block(0, 6, leggedModel_.nJoints(), leggedModel_.nJoints()).setIdentity();
 
-  matrix_t a = (matrix_t(leggedModel.nDof(), numDecisionVars_) << MMeasured_, -jMeasured_.transpose(), -s.transpose()).finished();
+  matrix_t a = (matrix_t(leggedModel_.nDof(), numDecisionVars_) << MMeasured_, -jMeasured_.transpose(), -s.transpose()).finished();
   vector_t b = -nleMeasured_;
 
   if(verbose_) {
@@ -114,14 +114,14 @@ Task WbcBase::formulateFloatingBaseEomTask() {
 }
 
 Task WbcBase::formulateTorqueLimitsTask() {
-  matrix_t d(2 * leggedModel.nJoints(), numDecisionVars_);
+  matrix_t d(2 * leggedModel_.nJoints(), numDecisionVars_);
   d.setZero();
-  matrix_t i = matrix_t::Identity(leggedModel.nJoints(), leggedModel.nJoints());
-  d.block(0, leggedModel.nDof() + 3 * leggedModel.nContacts3Dof(), leggedModel.nJoints(), leggedModel.nJoints()) = i;
-  d.block(leggedModel.nJoints(), leggedModel.nDof() + 3 * leggedModel.nContacts3Dof(), leggedModel.nJoints(),
-          leggedModel.nJoints()) = -i;
-  vector_t f(2 * leggedModel.nJoints());
-  for (size_t l = 0; l < 2 * leggedModel.nJoints() / 3; ++l) {
+  matrix_t i = matrix_t::Identity(leggedModel_.nJoints(), leggedModel_.nJoints());
+  d.block(0, leggedModel_.nDof() + 3 * leggedModel_.nContacts3Dof(), leggedModel_.nJoints(), leggedModel_.nJoints()) = i;
+  d.block(leggedModel_.nJoints(), leggedModel_.nDof() + 3 * leggedModel_.nContacts3Dof(), leggedModel_.nJoints(),
+          leggedModel_.nJoints()) = -i;
+  vector_t f(2 * leggedModel_.nJoints());
+  for (size_t l = 0; l < 2 * leggedModel_.nJoints() / 3; ++l) {
     f.segment<3>(3 * l) = torqueLimits_;
   }
 
@@ -141,10 +141,10 @@ Task WbcBase::formulateNoContactMotionTask() {
   a.setZero();
   b.setZero();
   size_t j = 0;
-  for (size_t i = 0; i < leggedModel.nContacts3Dof(); i++) {
+  for (size_t i = 0; i < leggedModel_.nContacts3Dof(); i++) {
     if (contactFlag_[i]) {
-      a.block(3 * j, 0, 3, leggedModel.nDof()) = jMeasured_.block(3 * i, 0, 3, leggedModel.nDof());
-      b.segment(3 * j, 3) = -djMeasured_.block(3 * i, 0, 3, leggedModel.nDof()) * vMeasured_;
+      a.block(3 * j, 0, 3, leggedModel_.nDof()) = jMeasured_.block(3 * i, 0, 3, leggedModel_.nDof());
+      b.segment(3 * j, 3) = -djMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) * vMeasured_;
       j++;
     }
   }
@@ -160,12 +160,12 @@ Task WbcBase::formulateNoContactMotionTask() {
 }
 
 Task WbcBase::formulateFrictionConeTask() {
-  matrix_t a(3 * (leggedModel.nContacts3Dof() - numContacts_), numDecisionVars_);
+  matrix_t a(3 * (leggedModel_.nContacts3Dof() - numContacts_), numDecisionVars_);
   a.setZero();
   size_t j = 0;
-  for (size_t i = 0; i < leggedModel.nContacts3Dof(); ++i) {
+  for (size_t i = 0; i < leggedModel_.nContacts3Dof(); ++i) {
     if (!contactFlag_[i]) {
-      a.block(3 * j++, leggedModel.nDof() + 3 * i, 3, 3) = matrix_t::Identity(3, 3);
+      a.block(3 * j++, leggedModel_.nDof() + 3 * i, 3, 3) = matrix_t::Identity(3, 3);
     }
   }
   vector_t b(a.rows());
@@ -181,9 +181,9 @@ Task WbcBase::formulateFrictionConeTask() {
   matrix_t d(5 * numContacts_, numDecisionVars_);
   d.setZero();
   j = 0;
-  for (size_t i = 0; i < leggedModel.nContacts3Dof(); ++i) {
+  for (size_t i = 0; i < leggedModel_.nContacts3Dof(); ++i) {
     if (contactFlag_[i]) {
-      d.block(5 * j++, leggedModel.nDof() + 3 * i, 5, 3) = frictionPyramic;
+      d.block(5 * j++, leggedModel_.nDof() + 3 * i, 5, 3) = frictionPyramic;
     }
   }
   vector_t f = Eigen::VectorXd::Zero(d.rows());
@@ -205,17 +205,17 @@ Task WbcBase::formulateBaseAccelTask(scalar_t period) {
   a.setZero();
   a.block(0, 0, 6, 6) = matrix_t::Identity(6, 6);
 
-  vector_t jointAccel = (vDesired_ - vDesiredLast_).tail(leggedModel.nJoints());
+  vector_t jointAccel = (vDesired_ - vDesiredLast_).tail(leggedModel_.nJoints());
   vDesiredLast_ = vDesired_;
 
   const Matrix6 Ab = ADesired_.template leftCols<6>();
   const auto AbInv = computeFloatingBaseCentroidalMomentumMatrixInverse(Ab);
-  const auto Aj = ADesired_.rightCols(leggedModel.nJoints());
+  const auto Aj = ADesired_.rightCols(leggedModel_.nJoints());
 
   Vector6 centroidalMomentumRate = mass_ * getNormalizedCentroidalMomentumRate(mass_, 
                                                                               comDesired_,
-                                                                              leggedModel.contact3DofPoss(qDesired_),
-                                                                              leggedModel.contact6DofPoss(qDesired_),
+                                                                              leggedModel_.contact3DofPoss(qDesired_),
+                                                                              leggedModel_.contact6DofPoss(qDesired_),
                                                                               fDesired_);
   centroidalMomentumRate.noalias() -= dADesired_ * vDesired_;
   centroidalMomentumRate.noalias() -= Aj * jointAccel;
@@ -237,7 +237,7 @@ Task WbcBase::formulateBaseAccelTaskPD(scalar_t period) {
   a.setZero();
   a.block(0, 0, 6, 6) = matrix_t::Identity(6, 6);
 
-  vector_t jointAccel = (vDesired_ - vDesiredLast_).tail(leggedModel.nJoints());
+  vector_t jointAccel = (vDesired_ - vDesiredLast_).tail(leggedModel_.nJoints());
   vDesiredLast_ = vDesired_;
 
   Vector6 pos_error, vel_error, accel, b; 
@@ -278,21 +278,21 @@ Task WbcBase::formulateBaseAccelTaskPD(scalar_t period) {
 }
 
 Task WbcBase::formulateSwingLegTask() {
-  std::vector<Eigen::Vector3d> posMeasured = leggedModel.contact3DofPoss(qMeasured_);
-  std::vector<Eigen::Vector3d> velMeasured = leggedModel.contact3DofVels(qMeasured_, vMeasured_);
-  std::vector<Eigen::Vector3d> posDesired = leggedModel.contact3DofPoss(qDesired_);
-  std::vector<Eigen::Vector3d> velDesired = leggedModel.contact3DofVels(qDesired_, vDesired_);
+  std::vector<Eigen::Vector3d> posMeasured = leggedModel_.contact3DofPoss(qMeasured_);
+  std::vector<Eigen::Vector3d> velMeasured = leggedModel_.contact3DofVels(qMeasured_, vMeasured_);
+  std::vector<Eigen::Vector3d> posDesired = leggedModel_.contact3DofPoss(qDesired_);
+  std::vector<Eigen::Vector3d> velDesired = leggedModel_.contact3DofVels(qDesired_, vDesired_);
 
-  matrix_t a(3 * (leggedModel.nContacts3Dof() - numContacts_), numDecisionVars_);
+  matrix_t a(3 * (leggedModel_.nContacts3Dof() - numContacts_), numDecisionVars_);
   vector_t b(a.rows());
   a.setZero();
   b.setZero();
   size_t j = 0;
-  for (size_t i = 0; i < leggedModel.nContacts3Dof(); ++i) {
+  for (size_t i = 0; i < leggedModel_.nContacts3Dof(); ++i) {
     if (!contactFlag_[i]) {
       Eigen::Vector3d accel = swingKp_ * (posDesired[i] - posMeasured[i]) + swingKd_ * (velDesired[i] - velMeasured[i]);
-      a.block(3 * j, 0, 3, leggedModel.nDof()) = jMeasured_.block(3 * i, 0, 3, leggedModel.nDof());
-      b.segment(3 * j, 3) = accel - djMeasured_.block(3 * i, 0, 3, leggedModel.nDof()) * vMeasured_;
+      a.block(3 * j, 0, 3, leggedModel_.nDof()) = jMeasured_.block(3 * i, 0, 3, leggedModel_.nDof());
+      b.segment(3 * j, 3) = accel - djMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) * vMeasured_;
       j++;
     }
   }
@@ -308,12 +308,12 @@ Task WbcBase::formulateSwingLegTask() {
 }
 
 Task WbcBase::formulateContactForceTask() {
-  matrix_t a(3 * leggedModel.nContacts3Dof(), numDecisionVars_);
+  matrix_t a(3 * leggedModel_.nContacts3Dof(), numDecisionVars_);
   vector_t b(a.rows());
   a.setZero();
 
-  for (size_t i = 0; i < leggedModel.nContacts3Dof(); ++i) {
-    a.block(3 * i, leggedModel.nDof() + 3 * i, 3, 3) = matrix_t::Identity(3, 3);
+  for (size_t i = 0; i < leggedModel_.nContacts3Dof(); ++i) {
+    a.block(3 * i, leggedModel_.nDof() + 3 * i, 3, 3) = matrix_t::Identity(3, 3);
   }
   b = fDesired_;
 
@@ -340,22 +340,22 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
   std::cout << "[WbcBase] Load config from " << configFile << std::endl;
   YAML::Node configNode = YAML::LoadFile(configFile);
 
-  leggedModel.loadUrdf(configNode["urdfPath"].as<std::string>(), "eulerZYX",
-                       configNode["baseName"].as<std::string>(), 
-                       configNode["contact3DofNames"].as<std::vector<std::string>>(), 
-                       configNode["contact6DofNames"].as<std::vector<std::string>>());
-
   verbose_ = configNode["verbose"].as<bool>();
 
-  mass_ = pinocchio::computeTotalMass(leggedModel.model());
+  leggedModel_.loadUrdf(configNode["urdfPath"].as<std::string>(), "eulerZYX",
+                       configNode["baseName"].as<std::string>(), 
+                       configNode["contact3DofNames"].as<std::vector<std::string>>(), 
+                       configNode["contact6DofNames"].as<std::vector<std::string>>(), verbose_);
 
-  numDecisionVars_ = leggedModel.nDof() + 3 * leggedModel.nContacts3Dof() + leggedModel.nJoints();
-  qMeasured_ = vector_t(leggedModel.nDof());
-  vMeasured_ = vector_t(leggedModel.nDof());
-  qDesired_ = vector_t(leggedModel.nDof());
-  vDesired_ = vector_t(leggedModel.nDof());
-  vDesiredLast_ = vector_t(leggedModel.nDof());
-  fDesired_ = vector_t(12);
+  mass_ = pinocchio::computeTotalMass(leggedModel_.model());
+
+  numDecisionVars_ = leggedModel_.nDof() + 3 * leggedModel_.nContacts3Dof() + leggedModel_.nContacts6Dof()*6 + leggedModel_.nJoints();
+  qMeasured_ = vector_t(leggedModel_.nDof());
+  vMeasured_ = vector_t(leggedModel_.nDof());
+  qDesired_ = vector_t(leggedModel_.nDof());
+  vDesired_ = vector_t(leggedModel_.nDof());
+  vDesiredLast_ = vector_t(leggedModel_.nDof());
+  fDesired_ = vector_t(leggedModel_.nContacts3Dof()*3 + leggedModel_.nContacts6Dof()*6);
 
   baseAccelKp_ = yamlToEigenVector(configNode["baseAccelTask"]["baseAcc_kp"]);
   baseAccelKd_ = yamlToEigenVector(configNode["baseAccelTask"]["baseAcc_kd"]);
@@ -366,6 +366,11 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
 
   if(verbose_) {
     std::cout << std::fixed << std::setprecision(2) << std::endl;
+    std::cout << "[WbcBase] mass: " << mass_ << std::endl;
+    std::cout << "[WbcBase] numDecisionVars: " << numDecisionVars_ << std::endl;
+    std::cout << "[WbcBase] size of qMeasured : " << qMeasured_.size() << std::endl;
+    std::cout << "[WbcBase] size of fDesired_: " << fDesired_.size() << std::endl;
+
     std::cout << "[WbcBase] baseAccelKp: " << baseAccelKp_.transpose() << std::endl;
     std::cout << "[WbcBase] baseAccelKd: " << baseAccelKd_.transpose() << std::endl;
     std::cout << "[WbcBase] swingKp: " << swingKp_ << std::endl;

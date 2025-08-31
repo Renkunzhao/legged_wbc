@@ -27,6 +27,7 @@ class WbcBase {
                           scalar_t period, std::string method = "centroidal");
 
   size_t mass() const {return mass_;}
+  LeggedModel& leggedModel() {return leggedModel_;}
 
  protected:
   void updateMeasured();
@@ -43,7 +44,7 @@ class WbcBase {
   Task formulateSwingLegTask();
   Task formulateContactForceTask();
 
-  LeggedModel leggedModel;
+  LeggedModel leggedModel_;
   size_t numDecisionVars_;
 
   size_t mass_;

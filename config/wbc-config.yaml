@@ -1,7 +1,20 @@
 # Whole body control
-urdfPath: /root/code/go2_ws/src/legged_wbc/urdf/go2.urdf
+verbose: false
 
-verbose: true
+# go1
+# urdfPath: /root/code/go2_ws/src/legged_wbc/urdf/go1.urdf
+
+# baseName: base
+# contact3DofNames:
+#   - LF_FOOT
+#   - RF_FOOT
+#   - LH_FOOT 
+#   - RH_FOOT
+
+# contact6DofNames: []
+
+# go2
+urdfPath: /root/code/go2_ws/src/legged_wbc/urdf/go2.urdf
 
 baseName: base
 contact3DofNames:

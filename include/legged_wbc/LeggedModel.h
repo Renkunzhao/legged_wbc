@@ -11,6 +11,8 @@
 
 class LeggedModel {
 private:
+    bool verbose_;
+
     std::string baseType_;
     pinocchio::Model model_;
     pinocchio::Data data_;
@@ -18,6 +20,7 @@ private:
     size_t nJoints_;
     LeggedState leggedState_;
 
+    size_t nqBase_;
     std::string baseName_;               // 基座名称
 
     // 3 Dof end effector
@@ -39,6 +42,7 @@ public:
 
     size_t nDof() const {return  nJoints_ + 6;}
     size_t nJoints() const {return  nJoints_;}
+    size_t nqBase() const {return  nqBase_;}
 
     size_t nContacts3Dof() const {return  nContacts3Dof_;}
     const std::vector<std::string>& contact3DofNames() const {return  contact3DofNames_;}
@@ -52,7 +56,9 @@ public:
     std::vector<Eigen::Vector3d> contact6DofPoss(const Eigen::VectorXd& q_pin);
     std::vector<Eigen::Vector3d> contact6DofVels(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin);
 
-    void loadUrdf(std::string urdfPath, std::string baseType, std::string baseName, std::vector<std::string> contact3DofNames, std::vector<std::string> contact6DofNames);
+    Eigen::VectorXd inverseKine3Dof(Eigen::VectorXd qBase, const std::vector<Eigen::Vector3d>& contact3DofPoss);
+
+    void loadUrdf(std::string urdfPath, std::string baseType, std::string baseName, std::vector<std::string> contact3DofNames, std::vector<std::string> contact6DofNames, bool verbose = false);
 };
 
 #endif // LEGGEDMODEL_H
