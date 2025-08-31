@@ -3,120 +3,120 @@ project(legged_wbc)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(catkin REQUIRED
-        COMPONENTS
-        roscpp
-        qpoases_catkin
-        )
+find_package(catkin QUIET)
+if(catkin_FOUND)
+    message("Found catkin")
+    catkin_package(
+        INCLUDE_DIRS include
+        LIBRARIES ${PROJECT_NAME}
+    )
+endif()
 
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+##############################
+# 1️⃣ 与 ROS 无关的部分（纯 C++）
+##############################
 
+# 第三方库
+find_package(Eigen3 REQUIRED)
 find_package(yaml-cpp REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(pinocchio REQUIRED pinocchio)
+find_package(qpOASES REQUIRED)
+find_package(pinocchio REQUIRED)
 
-catkin_package(
-        INCLUDE_DIRS
-        include
-        LIBRARIES
-        ${PROJECT_NAME}
-        CATKIN_DEPENDS
-        roscpp
-        DEPENDS
-        pinocchio
-)
-
-###########
-## Build ##
-###########
-
+# include 目录
 include_directories(
-        include
-        ${catkin_INCLUDE_DIRS}
-        ${EIGEN3_INCLUDE_DIRS}
-        ${pinocchio_INCLUDE_DIRS}
+    include
+    ${EIGEN3_INCLUDE_DIRS}
+    ${pinocchio_INCLUDE_DIRS}
+    ${qpOASES_INCLUDE_DIR}
 )
 
+# library 搜索路径
 link_directories(
-        ${pinocchio_LIBRARY_DIRS}
+    ${pinocchio_LIBRARY_DIRS}
 )
 
+# 库
+add_library(${PROJECT_NAME}
+    src/HoQp.cpp
+    src/WbcBase.cpp
+    src/HierarchicalWbc.cpp
+    src/WeightedWbc.cpp
+    src/LeggedState.cpp
+    src/LeggedModel.cpp
+)
+
+target_link_libraries(${PROJECT_NAME}
+    ${pinocchio_LIBRARIES}
+    ${qpOASES_LIBRARY}
+    yaml-cpp
+)
+
+# 可执行文件示例（独立测试）
 add_executable(LeggedState_test
-  test/LeggedState_test.cpp
-  src/LeggedState.cpp
+    test/LeggedState_test.cpp
+    src/LeggedState.cpp
 )
-
 target_link_libraries(LeggedState_test ${pinocchio_LIBRARIES})
 
 add_executable(LeggedModel_test
-  test/LeggedModel_test.cpp
-  src/LeggedState.cpp
-  src/LeggedModel.cpp
+    test/LeggedModel_test.cpp
+    src/LeggedState.cpp
+    src/LeggedModel.cpp
 )
-
 target_link_libraries(LeggedModel_test ${pinocchio_LIBRARIES})
 
-add_library(${PROJECT_NAME}
-        src/HoQp.cpp
-        src/WbcBase.cpp
-        src/HierarchicalWbc.cpp
-        src/WeightedWbc.cpp
-        src/LeggedState.cpp
-        src/LeggedModel.cpp
-        )
+add_executable(WeightedWbc_test
+    test/WeightedWbc_test.cpp
+    src/LeggedState.cpp
+    src/LeggedModel.cpp
+    src/WbcBase.cpp
+    src/WeightedWbc.cpp
+)
+target_link_libraries(WeightedWbc_test ${pinocchio_LIBRARIES} ${qpOASES_LIBRARY} yaml-cpp)
 
-target_link_libraries(${PROJECT_NAME}
-        ${catkin_LIBRARIES}
-        ${pinocchio_LIBRARIES}
-        yaml-cpp
-        )
+##############################
+# 2️⃣ ROS 适配部分（可选）
+##############################
 
-target_compile_options(${PROJECT_NAME} PUBLIC ${OCS2_CXX_FLAGS})
-
-#########################
-###   CLANG TOOLING   ###
-#########################
-find_package(cmake_clang_tools QUIET)
-if (cmake_clang_tools_FOUND)
-    message(STATUS "Run clang tooling for target " ${PROJECT_NAME})
-    add_clang_tooling(
-            TARGETS ${PROJECT_NAME}
-            SOURCE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/include
-            CT_HEADER_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
-            CF_WERROR
-    )
-endif (cmake_clang_tools_FOUND)
-
-#############
-## Install ##
-#############
-
-# Mark executables and/or libraries for installation
-install(TARGETS ${PROJECT_NAME}
+# ROS1
+if(catkin_FOUND)
+    # 安装库和头文件
+    install(TARGETS ${PROJECT_NAME}
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-        )
-
-# Mark cpp header files for installation
-install(DIRECTORY include/${PROJECT_NAME}/
+    )
+    install(DIRECTORY include/${PROJECT_NAME}/
         DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-        FILES_MATCHING PATTERN "*.h"
-        )
+    )
 
-#############
-## Testing ##
-#############
-if (CATKIN_ENABLE_TESTING)
-    catkin_add_gtest(${PROJECT_NAME}_test
+    # ROS 测试
+    if (CATKIN_ENABLE_TESTING)
+        catkin_add_gtest(${PROJECT_NAME}_test
             test/HoQp_test.cpp
-            )
-
-    target_link_libraries(${PROJECT_NAME}_test
+        )
+        target_link_libraries(${PROJECT_NAME}_test
             ${PROJECT_NAME}
             ${pinocchio_LIBRARIES}
             gtest_main
-            )
+        )
+    endif()
+endif()
 
-    target_compile_options(${PROJECT_NAME}_test PUBLIC ${FLAGS})
-endif (CATKIN_ENABLE_TESTING)
+# ROS2
+find_package(ament_cmake QUIET)
+if(ament_cmake_FOUND)
+    ament_package(
+        INCLUDE_DIRS include
+        LIBRARIES ${PROJECT_NAME}
+    )
+
+    install(TARGETS ${PROJECT_NAME}
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+    )
+    install(DIRECTORY include/${PROJECT_NAME}/
+        DESTINATION include
+    )
+endif()

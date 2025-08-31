@@ -18,13 +18,15 @@ class WbcBase {
   using Matrix6 = Eigen::Matrix<scalar_t, 6, 6>;
 
  public:
-  WbcBase();
+  WbcBase() = default;
 
-  virtual void loadTasksSetting(const std::string& configFile, bool verbose);
+  virtual void loadTasksSetting(const std::string& configFile);
 
   virtual vector_t update(const vector_t& qDesired, const vector_t& vDesired, const vector_t& fDesired,
                           const vector_t& qMeasured, const vector_t& vMeasured, std::array<bool, 4> contactFlag,
                           scalar_t period, std::string method = "centroidal");
+
+  size_t mass() const {return mass_;}
 
  protected:
   void updateMeasured();
@@ -53,6 +55,7 @@ class WbcBase {
   matrix_t ADesired_, dADesired_;
 
   // Task Parameters:
+  bool verbose_;
   vector_t torqueLimits_ = vector_t::Zero(3), baseAccelKp_ = vector_t::Zero(6), baseAccelKd_ = vector_t::Zero(6);
   scalar_t frictionCoeff_{}, swingKp_{}, swingKd_{};
 };

@@ -5,6 +5,7 @@
 
 void LeggedModel::loadUrdf(std::string urdfPath, std::string baseType, 
                             std::string baseName, std::vector<std::string> contact3DofNames, std::vector<std::string> contact6DofNames){
+    std::cout << "[LeggedModel] Load URDF from " << urdfPath << std::endl;
     if (baseType == "quaternion") {
         // 使用 pinocchio::JointModelFreeFlyer 的浮动基机器人模型（基于四元数）
         pinocchio::urdf::buildModel(urdfPath, pinocchio::JointModelFreeFlyer(), model_);

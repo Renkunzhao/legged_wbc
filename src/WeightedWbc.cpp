@@ -73,16 +73,21 @@ Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
   }
 }
 
-void WeightedWbc::loadTasksSetting(const std::string& configFile, bool verbose) {
-  WbcBase::loadTasksSetting(configFile, verbose);
+void WeightedWbc::loadTasksSetting(const std::string& configFile) {
+  WbcBase::loadTasksSetting(configFile);
 
-  std::cout << "[WeightedWbc]: Load config from " << configFile << std::endl;
+  std::cout << "[WeightedWbc] Load config from " << configFile << std::endl;
   YAML::Node configNode = YAML::LoadFile(configFile);
 
   weightBaseAccel_ = configNode["weight"]["baseAccel"].as<double>();
   weightContactForce_ = configNode["weight"]["baseAccel"].as<double>();
   weightSwingLeg_ = configNode["weight"]["swingLeg"].as<double>();
-  std::cout << "[WeightedWbc]: Config finished." << std::endl;
+
+  if(verbose_) {
+    std::cout << "[WeightedWbc] weightBaseAccel: " << weightBaseAccel_ << std::endl;
+    std::cout << "[WeightedWbc] weightContactForce: " << weightContactForce_ << std::endl;
+    std::cout << "[WeightedWbc] weightSwingLeg: " << weightSwingLeg_ << std::endl;
+  }
 }
 
 }  // namespace legged

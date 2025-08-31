@@ -3,14 +3,13 @@
 //
 #include <pinocchio/fwd.hpp>  // forward declarations must be included first.
 
+#include "legged_wbc/Types.h"
 #include "legged_wbc/ModelHelperFunctions.h"
 #include "legged_wbc/RotationDerivativesTransforms.h"
 #include "legged_wbc/WbcBase.h"
 
 #include <yaml-cpp/yaml.h>
 
-#include "legged_wbc/Types.h"
-#include "pinocchio/spatial/fwd.hpp"
 #include <pinocchio/algorithm/centroidal.hpp>
 #include <pinocchio/algorithm/center-of-mass.hpp>
 #include <pinocchio/algorithm/crba.hpp>
@@ -19,20 +18,6 @@
 #include <pinocchio/math/rpy.hpp>
 
 namespace legged {
-WbcBase::WbcBase() {
-  leggedModel.loadUrdf("/tmp/legged_control/go1.urdf", "eulerZYX", "base", {"LF_FOOT", "RF_FOOT", "LH_FOOT", "RH_FOOT"}, {});
-
-  mass_ = pinocchio::computeTotalMass(leggedModel.model());
-
-  numDecisionVars_ = leggedModel.nDof() + 3 * leggedModel.nContacts3Dof() + leggedModel.nJoints();
-  qMeasured_ = vector_t(leggedModel.nDof());
-  vMeasured_ = vector_t(leggedModel.nDof());
-  qDesired_ = vector_t(leggedModel.nDof());
-  vDesired_ = vector_t(leggedModel.nDof());
-  vDesiredLast_ = vector_t(leggedModel.nDof());
-  fDesired_ = vector_t(12);
-  std::cout << "[WbcBase]: Construct finished." << std::endl;
-}
 
 vector_t WbcBase::update(const vector_t& qDesired, const vector_t& vDesired, const vector_t& fDesired, 
                          const vector_t& qMeasured, const vector_t& vMeasured, std::array<bool, 4> contactFlag,
@@ -82,6 +67,13 @@ void WbcBase::updateMeasured() {
     pinocchio::getFrameJacobianTimeVariation(model, data, leggedModel.contact3DofIds()[i], pinocchio::LOCAL_WORLD_ALIGNED, jac);
     djMeasured_.block(3 * i, 0, 3, leggedModel.nDof()) = jac.template topRows<3>();
   }
+
+  if(verbose_) {
+    std::cout << "[WbcBase] MMeasured:\n" << MMeasured_ << std::endl;
+    std::cout << "[WbcBase] nleMeasured:" << nleMeasured_.transpose() << std::endl;
+    std::cout << "[WbcBase] jMeasured:\n" << jMeasured_ << std::endl;
+    std::cout << "[WbcBase] djMeasured:\n" << djMeasured_ << std::endl;
+  }
 }
 
 void WbcBase::updateDesired() {
@@ -94,6 +86,11 @@ void WbcBase::updateDesired() {
   dADesired_ = matrix_t(6, leggedModel.nDof());
   ADesired_ = pinocchio::computeCentroidalMap(model, data, qDesired_);
   dADesired_ = pinocchio::dccrba(model, data, qDesired_, vDesired_);
+
+  if(verbose_) {
+    std::cout << "[WbcBase] ADesired:\n" << ADesired_ << std::endl;
+    std::cout << "[WbcBase] dADesired:\n" << dADesired_ << std::endl;
+  }
 }
 
 Task WbcBase::formulateFloatingBaseEomTask() {
@@ -103,6 +100,13 @@ Task WbcBase::formulateFloatingBaseEomTask() {
 
   matrix_t a = (matrix_t(leggedModel.nDof(), numDecisionVars_) << MMeasured_, -jMeasured_.transpose(), -s.transpose()).finished();
   vector_t b = -nleMeasured_;
+
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] FloatingBaseEomTask " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+  }
 
   return {a, b, matrix_t(), vector_t()};
 }
@@ -117,6 +121,13 @@ Task WbcBase::formulateTorqueLimitsTask() {
   vector_t f(2 * leggedModel.nJoints());
   for (size_t l = 0; l < 2 * leggedModel.nJoints() / 3; ++l) {
     f.segment<3>(3 * l) = torqueLimits_;
+  }
+
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] TorqueLimitsTask " << std::endl;
+    std::cout << "[WbcBase] d:\n" << d << std::endl;
+    std::cout << "[WbcBase] f: " << f.transpose() << std::endl;
   }
 
   return {matrix_t(), vector_t(), d, f};
@@ -136,6 +147,13 @@ Task WbcBase::formulateNoContactMotionTask() {
     }
   }
 
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] NoContactMotionTask " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+  }
+  
   return {a, b, matrix_t(), vector_t()};
 }
 
@@ -168,6 +186,15 @@ Task WbcBase::formulateFrictionConeTask() {
   }
   vector_t f = Eigen::VectorXd::Zero(d.rows());
 
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] FrictionConeTask " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+    std::cout << "[WbcBase] d:\n" << d << std::endl;
+    std::cout << "[WbcBase] f: " << f.transpose() << std::endl;
+  }
+  
   return {a, b, d, f};
 }
 
@@ -192,6 +219,13 @@ Task WbcBase::formulateBaseAccelTask(scalar_t period) {
   centroidalMomentumRate.noalias() -= Aj * jointAccel;
 
   Vector6 b = AbInv * centroidalMomentumRate;
+
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] BaseAccelTask " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+  }
 
   return {a, b, matrix_t(), vector_t()};
 }
@@ -231,6 +265,13 @@ Task WbcBase::formulateBaseAccelTaskPD(scalar_t period) {
   b << accel.head<3>(), 
       getEulerAnglesZyxDerivativesFromGlobalAngularAcceleration(eulerZYX, eulerZYX_dot, accel.segment<3>(3).eval());
 
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] BaseAccelTaskPD " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+  }
+      
   return {a, b, matrix_t(), vector_t()};
 }
 
@@ -254,6 +295,13 @@ Task WbcBase::formulateSwingLegTask() {
     }
   }
 
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] SwingLegTask " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+  }
+  
   return {a, b, matrix_t(), vector_t()};
 }
 
@@ -267,6 +315,13 @@ Task WbcBase::formulateContactForceTask() {
   }
   b = fDesired_;
 
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] ContactForceTask " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+  }
+  
   return {a, b, matrix_t(), vector_t()};
 }
 
@@ -279,9 +334,23 @@ inline Eigen::VectorXd yamlToEigenVector(const YAML::Node& node) {
     return Eigen::Map<Eigen::VectorXd>(vec.data(), vec.size());
 }
 
-void WbcBase::loadTasksSetting(const std::string& configFile, bool verbose) {
-  std::cout << "[WbcBase]: Load config from " << configFile << std::endl;
+void WbcBase::loadTasksSetting(const std::string& configFile) {
+  std::cout << "[WbcBase] Load config from " << configFile << std::endl;
   YAML::Node configNode = YAML::LoadFile(configFile);
+
+  leggedModel.loadUrdf(configNode["urdfPath"].as<std::string>(), "eulerZYX", "base", {"LF_FOOT", "RF_FOOT", "LH_FOOT", "RH_FOOT"}, {});
+
+  verbose_ = configNode["verbose"].as<bool>();
+
+  mass_ = pinocchio::computeTotalMass(leggedModel.model());
+
+  numDecisionVars_ = leggedModel.nDof() + 3 * leggedModel.nContacts3Dof() + leggedModel.nJoints();
+  qMeasured_ = vector_t(leggedModel.nDof());
+  vMeasured_ = vector_t(leggedModel.nDof());
+  qDesired_ = vector_t(leggedModel.nDof());
+  vDesired_ = vector_t(leggedModel.nDof());
+  vDesiredLast_ = vector_t(leggedModel.nDof());
+  fDesired_ = vector_t(12);
 
   baseAccelKp_ = yamlToEigenVector(configNode["baseAccelTask"]["baseAcc_kp"]);
   baseAccelKd_ = yamlToEigenVector(configNode["baseAccelTask"]["baseAcc_kd"]);
@@ -289,7 +358,16 @@ void WbcBase::loadTasksSetting(const std::string& configFile, bool verbose) {
   swingKd_ = configNode["swingLegTask"]["kd"].as<double>();
   torqueLimits_ = yamlToEigenVector(configNode["torqueLimitsTask"]);
   frictionCoeff_ = configNode["frictionConeTask"]["frictionCoefficient"].as<double>();
-  std::cout << "[WbcBase]: Config finished." << std::endl;
+
+  if(verbose_) {
+    std::cout << std::fixed << std::setprecision(2) << std::endl;
+    std::cout << "[WbcBase] baseAccelKp: " << baseAccelKp_.transpose() << std::endl;
+    std::cout << "[WbcBase] baseAccelKd: " << baseAccelKd_.transpose() << std::endl;
+    std::cout << "[WbcBase] swingKp: " << swingKp_ << std::endl;
+    std::cout << "[WbcBase] swingKd: " << swingKd_ << std::endl;
+    std::cout << "[WbcBase] torqueLimits: " << torqueLimits_.transpose() << std::endl;
+    std::cout << "[WbcBase] frictionCoeff: " << frictionCoeff_ << std::endl;
+  }
 }
 
 }  // namespace legged

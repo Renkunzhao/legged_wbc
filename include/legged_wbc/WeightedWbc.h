@@ -15,7 +15,7 @@ class WeightedWbc : public WbcBase {
                   const vector_t& qMeasured, const vector_t& vMeasured, std::array<bool, 4> contactFlag,
                   scalar_t period, std::string method="centroidal") override;
 
-  void loadTasksSetting(const std::string& configFile, bool verbose) override;
+  void loadTasksSetting(const std::string& configFile) override;
 
  protected:
   virtual Task formulateConstraints();

@@ -1,4 +1,8 @@
 # Whole body control
+urdfPath: /tmp/legged_control/go1.urdf
+
+verbose: false
+
 baseAccelTask:
   baseAcc_kp:
     - 1000.0      # p_base_x
