@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <yaml-cpp/yaml.h>
+#include <pinocchio/algorithm/joint-configuration.hpp>
 
 int main(int argc, char **argv)
 {
