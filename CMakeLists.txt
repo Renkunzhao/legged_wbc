@@ -1,8 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
-project(legged_wbc)
+project(legged_wbc VERSION 0.1.0 LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+##############################
+# 1️⃣ ROS1 / Catkin 支持
+##############################
 find_package(catkin QUIET)
 if(catkin_FOUND)
     message("Found catkin")
@@ -13,14 +18,14 @@ if(catkin_FOUND)
 endif()
 
 ##############################
-# 1️⃣ 与 ROS 无关的部分（纯 C++）
+# 2️⃣ 与 ROS 无关的部分（纯 C++）
 ##############################
 
 # 第三方库
 find_package(Eigen3 REQUIRED)
+find_package(pinocchio REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(qpOASES REQUIRED)
-find_package(pinocchio REQUIRED)
 
 # include 目录
 include_directories(
@@ -35,8 +40,8 @@ link_directories(
     ${pinocchio_LIBRARY_DIRS}
 )
 
-# 库
-add_library(${PROJECT_NAME}
+# 创建库
+add_library(${PROJECT_NAME} STATIC
     src/HoQp.cpp
     src/WbcBase.cpp
     src/HierarchicalWbc.cpp
@@ -51,7 +56,40 @@ target_link_libraries(${PROJECT_NAME}
     yaml-cpp
 )
 
-# 可执行文件示例（独立测试）
+target_include_directories(${PROJECT_NAME} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    ${EIGEN3_INCLUDE_DIRS}
+    ${pinocchio_INCLUDE_DIRS}
+    ${qpOASES_INCLUDE_DIR}
+)
+
+##############################
+# 3️⃣ 安装配置
+##############################
+
+# 安装库
+install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
+)
+
+# 安装头文件
+install(DIRECTORY include/ DESTINATION include)
+
+# 安装导出文件
+install(EXPORT ${PROJECT_NAME}Targets
+    FILE ${PROJECT_NAME}Config.cmake
+    NAMESPACE ${PROJECT_NAME}::
+    DESTINATION lib/cmake/${PROJECT_NAME}
+)
+
+##############################
+# 4️⃣ 可执行文件（独立测试）
+##############################
+
 add_executable(LeggedState_test
     test/LeggedState_test.cpp
     src/LeggedState.cpp
@@ -63,7 +101,7 @@ add_executable(LeggedModel_test
     src/LeggedState.cpp
     src/LeggedModel.cpp
 )
-target_link_libraries(LeggedModel_test ${pinocchio_LIBRARIES})
+target_link_libraries(LeggedModel_test ${pinocchio_LIBRARIES} yaml-cpp)
 
 add_executable(WeightedWbc_test
     test/WeightedWbc_test.cpp
@@ -75,10 +113,9 @@ add_executable(WeightedWbc_test
 target_link_libraries(WeightedWbc_test ${pinocchio_LIBRARIES} ${qpOASES_LIBRARY} yaml-cpp)
 
 ##############################
-# 2️⃣ ROS 适配部分（可选）
+# 5️⃣ ROS1 测试与安装
 ##############################
 
-# ROS1
 if(catkin_FOUND)
     # 安装库和头文件
     install(TARGETS ${PROJECT_NAME}
@@ -90,7 +127,7 @@ if(catkin_FOUND)
         DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
     )
 
-    # ROS 测试
+    # ROS1 测试
     if (CATKIN_ENABLE_TESTING)
         catkin_add_gtest(${PROJECT_NAME}_test
             test/HoQp_test.cpp
@@ -103,20 +140,18 @@ if(catkin_FOUND)
     endif()
 endif()
 
-# ROS2
+##############################
+# 6️⃣ ROS2 / ament_cmake 支持
+##############################
+
 find_package(ament_cmake QUIET)
 if(ament_cmake_FOUND)
-    ament_package(
-        INCLUDE_DIRS include
-        LIBRARIES ${PROJECT_NAME}
+    message("Found ament_cmake")
+
+    # 安装可执行文件
+    install(TARGETS LeggedState_test LeggedModel_test WeightedWbc_test
+        DESTINATION lib/${PROJECT_NAME}
     )
 
-    install(TARGETS ${PROJECT_NAME}
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin
-    )
-    install(DIRECTORY include/${PROJECT_NAME}/
-        DESTINATION include
-    )
+    ament_package()
 endif()
