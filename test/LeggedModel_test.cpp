@@ -1,11 +1,23 @@
 #include "legged_wbc/LeggedModel.h"
 
+#include <iostream>
 #include <string>
+#include <yaml-cpp/yaml.h>
 
 int main(int argc, char **argv)
 {
+    std::string configFile;
+    if (argc!=2) throw std::runtime_error("[LeggedModel_test] configFile path required.");
+    else configFile = argv[1];
+    std::cout << "[LeggedModel_test] Load config from " << configFile << std::endl;
+
+    YAML::Node configNode = YAML::LoadFile(configFile);
+
     LeggedModel leggedModel;
-    leggedModel.loadUrdf("/tmp/legged_control/go1.urdf", "eulerZYX", "base", {"LF_FOOT", "RF_FOOT", "LH_FOOT", "RH_FOOT"}, {});
+    leggedModel.loadUrdf(configNode["urdfPath"].as<std::string>(), "eulerZYX",
+                        configNode["baseName"].as<std::string>(), 
+                        configNode["contact3DofNames"].as<std::vector<std::string>>(), 
+                        configNode["contact6DofNames"].as<std::vector<std::string>>());
 
     std::cout << "[LeggedModel]: " << "nDof " << leggedModel.nDof() << std::endl;
     std::cout << "[LeggedModel]: " << "nJoints " << leggedModel.nJoints() << std::endl;

@@ -1,0 +1,47 @@
+# Whole body control
+urdfPath: /root/code/go2_ws/src/legged_wbc/urdf/go1.urdf
+
+verbose: true
+
+baseName: base
+contact3DofNames:
+  - LF_FOOT
+  - RF_FOOT
+  - LH_FOOT 
+  - RH_FOOT
+
+contact6DofNames: []
+
+baseAccelTask:
+  baseAcc_kp:
+    - 1000.0      # p_base_x
+    - 1000.0      # p_base_y
+    - 1200.0      # p_base_z
+    - 200.0       # r_base_x
+    - 200.0       # r_base_y
+    - 200.0       # r_base_z
+  baseAcc_kd:
+    - 15.0      # vx
+    - 15.0      # vy
+    - 30.0      # vz
+    - 20.0      # wx
+    - 20.0      # wy
+    - 20.0      # wz
+
+swingLegTask:
+  kp: 350
+  kd: 37
+
+torqueLimitsTask:
+  - 33.5     # HAA
+  - 33.5     # HFE
+  - 33.5     # KFE
+
+frictionConeTask:
+  frictionCoefficient: 0.3
+
+# WeightedWbc
+weight:
+  baseAccel: 10
+  baseAccel: 10
+  swingLeg: 100

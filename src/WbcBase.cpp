@@ -8,6 +8,8 @@
 #include "legged_wbc/RotationDerivativesTransforms.h"
 #include "legged_wbc/WbcBase.h"
 
+#include <iostream>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 #include <pinocchio/algorithm/centroidal.hpp>
@@ -338,7 +340,10 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
   std::cout << "[WbcBase] Load config from " << configFile << std::endl;
   YAML::Node configNode = YAML::LoadFile(configFile);
 
-  leggedModel.loadUrdf(configNode["urdfPath"].as<std::string>(), "eulerZYX", "base", {"LF_FOOT", "RF_FOOT", "LH_FOOT", "RH_FOOT"}, {});
+  leggedModel.loadUrdf(configNode["urdfPath"].as<std::string>(), "eulerZYX",
+                       configNode["baseName"].as<std::string>(), 
+                       configNode["contact3DofNames"].as<std::vector<std::string>>(), 
+                       configNode["contact6DofNames"].as<std::vector<std::string>>());
 
   verbose_ = configNode["verbose"].as<bool>();
 

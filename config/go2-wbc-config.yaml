@@ -1,7 +1,16 @@
 # Whole body control
-urdfPath: /tmp/legged_control/go1.urdf
+urdfPath: /root/code/go2_ws/src/legged_wbc/urdf/go2.urdf
 
-verbose: false
+verbose: true
+
+baseName: base
+contact3DofNames:
+  - FL_foot
+  - FR_foot
+  - RL_foot 
+  - RR_foot
+
+contact6DofNames: []
 
 baseAccelTask:
   baseAcc_kp:

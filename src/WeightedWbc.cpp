@@ -4,6 +4,7 @@
 
 #include "legged_wbc/WeightedWbc.h"
 
+#include <iostream>
 #include <yaml-cpp/yaml.h>
 #include <qpOASES.hpp>
 
