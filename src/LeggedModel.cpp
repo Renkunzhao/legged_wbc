@@ -98,13 +98,21 @@ std::vector<Eigen::Vector3d> LeggedModel::contact6DofVels(const Eigen::VectorXd&
 }
 
 Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::vector<Eigen::Vector3d>& contact3DofPoss){
-    if (qBase.size() != nqBase_) throw std::runtime_error("Base pose vector size does not match nqBase_");
-    if (contact3DofPoss.size() != contact3DofNames_.size()) throw std::runtime_error("Mismatch in number of target positions and foot names");
+    if (qBase.size() != nqBase_) {
+        throw std::runtime_error("Base pose vector size does not match nqBase_");
+    }
+    if (contact3DofPoss.size() != contact3DofNames_.size()) {
+        throw std::runtime_error("Mismatch in number of target positions and foot names");
+    }
 
     leggedState_.clear();
     leggedState_.setBasePos(qBase.head(3));
-    if (baseType_ == "quaternion") leggedState_.setBaseRotationFromQuaternion(qBase.tail(4));
-    else if (baseType_ == "eulerZYX") leggedState_.setBaseRotationFromEulerZYX(qBase.tail(3));
+    if (baseType_ == "quaternion") {
+        leggedState_.setBaseRotationFromQuaternion(qBase.tail(4));
+    }
+    else if(baseType_ == "eulerZYX") {
+        leggedState_.setBaseRotationFromEulerZYX(qBase.tail(3));
+    }
     Eigen::Matrix3d R = leggedState_.base_R();
 
     Eigen::VectorXd contact3DofPoss_base(nContacts3Dof_ * 3);
@@ -116,8 +124,12 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::v
     double tol = 1e-4, dt = 0.1, damping = 1e-6;
     Eigen::VectorXd q = (model_.upperPositionLimit + model_.lowerPositionLimit)/2;
     if (verbose_) std::cout << "[LeggedModel] IK start from " << q.transpose() << std::endl;
-    Eigen::VectorXd err(nContacts3Dof_ * 3);
-    Eigen::MatrixXd J(nContacts3Dof_*3, model_.nv - 6);
+    Eigen::VectorXd err = Eigen::VectorXd::Zero(nContacts3Dof_*3);
+    Eigen::VectorXd dqj = Eigen::VectorXd::Zero(model_.nv-6);
+    Eigen::MatrixXd J = Eigen::MatrixXd::Zero(nContacts3Dof_*3, model_.nv-6);
+    Eigen::MatrixXd Jt = Eigen::MatrixXd::Zero(model_.nv-6, nContacts3Dof_*3);
+    Eigen::MatrixXd JJt = Eigen::MatrixXd::Zero(nContacts3Dof_*3, nContacts3Dof_*3);
+    Eigen::MatrixXd JJt_damped = Eigen::MatrixXd::Zero(nContacts3Dof_*3, nContacts3Dof_*3);
     for (int i = 0; i < max_iters; i++) {
         pinocchio::forwardKinematics(model_, data_, q);
         pinocchio::updateFramePlacements(model_, data_);
@@ -140,18 +152,17 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::v
             J.block(3*i, 0, 3, J.cols()) = Jac.block(0, 6, 3, model_.nv-6);
         }
 
-        Eigen::MatrixXd Jt = J.transpose();
-        Eigen::MatrixXd JJt = J * Jt;
-        Eigen::MatrixXd JJt_damped = JJt + damping * Eigen::MatrixXd::Identity(JJt.rows(), JJt.cols());
-        Eigen::MatrixXd dq = Jt * (JJt_damped.ldlt().solve(err));
+        Jt = J.transpose();
+        JJt = J * Jt;
+        JJt_damped = JJt + damping * Eigen::MatrixXd::Identity(JJt.rows(), JJt.cols());
+        dqj = Jt * (JJt_damped.ldlt().solve(err));
         
-        q.tail(dq.size()) += dq * dt;
+        q.tail(dqj.size()) += dqj * dt;
 
         // 将角度包裹到 [-pi, pi]
-        for (int j = 0; j < dq.size(); ++j) {
+        for (int j = 0; j < dqj.size(); ++j) {
             double& angle = q[nqBase_ + j];
             angle = std::atan2(std::sin(angle), std::cos(angle));
         }
     }
 }
-

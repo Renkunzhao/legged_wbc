@@ -26,6 +26,7 @@ find_package(Eigen3 REQUIRED)
 find_package(pinocchio REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(qpOASES REQUIRED)
+find_package(logger REQUIRED)
 
 # include 目录
 include_directories(
@@ -41,7 +42,7 @@ link_directories(
 )
 
 # 创建库
-add_library(${PROJECT_NAME} SHARED
+add_library(${PROJECT_NAME} STATIC
     src/HoQp.cpp
     src/WbcBase.cpp
     src/HierarchicalWbc.cpp
@@ -54,6 +55,7 @@ target_link_libraries(${PROJECT_NAME}
     ${pinocchio_LIBRARIES}
     ${qpOASES_LIBRARY}
     yaml-cpp
+    logger::CsvLogger
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC
@@ -92,25 +94,22 @@ install(EXPORT ${PROJECT_NAME}Targets
 
 add_executable(LeggedState_test
     test/LeggedState_test.cpp
-    src/LeggedState.cpp
 )
-target_link_libraries(LeggedState_test ${pinocchio_LIBRARIES})
+target_link_libraries(LeggedState_test ${PROJECT_NAME} ${pinocchio_LIBRARIES})
 
 add_executable(LeggedModel_test
     test/LeggedModel_test.cpp
-    src/LeggedState.cpp
     src/LeggedModel.cpp
 )
-target_link_libraries(LeggedModel_test ${pinocchio_LIBRARIES} yaml-cpp)
+target_link_libraries(LeggedModel_test ${PROJECT_NAME} ${pinocchio_LIBRARIES} yaml-cpp)
 
 add_executable(WeightedWbc_test
     test/WeightedWbc_test.cpp
-    src/LeggedState.cpp
     src/LeggedModel.cpp
     src/WbcBase.cpp
     src/WeightedWbc.cpp
 )
-target_link_libraries(WeightedWbc_test ${pinocchio_LIBRARIES} ${qpOASES_LIBRARY} yaml-cpp)
+target_link_libraries(WeightedWbc_test ${PROJECT_NAME} ${pinocchio_LIBRARIES} ${qpOASES_LIBRARY} yaml-cpp)
 
 ##############################
 # 5️⃣ ROS1 测试与安装

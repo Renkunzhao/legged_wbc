@@ -129,6 +129,11 @@ public:
     void clear();
 
     /**
+     * @brief 根据当前时间记录所有状态
+     */
+    void log(std::string prefix);
+
+    /**
      * @brief 设置浮动基位置。
      * @param base_pos 浮动基在世界坐标系下的位置
      */

@@ -8,6 +8,7 @@
 #include <vector>
 #include <pinocchio/multibody/model.hpp>
 #include <pinocchio/multibody/data.hpp>
+#include <pinocchio/algorithm/center-of-mass.hpp>
 
 class LeggedModel {
 private:
@@ -43,6 +44,8 @@ public:
     size_t nDof() const {return  nJoints_ + 6;}
     size_t nJoints() const {return  nJoints_;}
     size_t nqBase() const {return  nqBase_;}
+
+    Eigen::Vector3d com(const Eigen::VectorXd& q_pin) {return pinocchio::centerOfMass(model_, data_, q_pin);}
 
     size_t nContacts3Dof() const {return  nContacts3Dof_;}
     const std::vector<std::string>& contact3DofNames() const {return  contact3DofNames_;}

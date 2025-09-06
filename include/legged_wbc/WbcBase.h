@@ -47,7 +47,7 @@ class WbcBase {
   LeggedModel leggedModel_;
   size_t numDecisionVars_;
 
-  size_t mass_;
+  double mass_;
   vector_t qMeasured_, vMeasured_, qDesired_, vDesired_, vDesiredLast_, fDesired_;
   size_t numContacts_;
   std::array<bool, 4> contactFlag_;

@@ -3,6 +3,7 @@
 #include <Eigen/Geometry>
 
 #include "legged_wbc/LeggedState.h"
+#include "logger/CsvLogger.h"
 
 // private
 std::map<std::string, Eigen::VectorXd> LeggedState::getStateMap() const {
@@ -94,6 +95,43 @@ void LeggedState::clear(){
     setBaseAngularVelocityW(Eigen::Vector3d::Zero());
     setJointPos(Eigen::VectorXd::Zero(num_joints_));
     setJointVel(Eigen::VectorXd::Zero(num_joints_));
+}
+
+void LeggedState::log(std::string prefix){
+    CsvLogger& logger = CsvLogger::getInstance();
+
+    // --- 主状态 ---
+    logger.update(prefix+"base_pos", base_pos_);
+    logger.update(prefix+"base_eulerZYX", base_eulerZYX_);
+    logger.update(prefix+"base_lin_vel_W", base_lin_vel_W_);
+    logger.update(prefix+"base_lin_vel_B", base_lin_vel_B_);
+    logger.update(prefix+"base_ang_vel_W", base_ang_vel_W_);
+    logger.update(prefix+"base_ang_vel_B", base_ang_vel_B_);
+    logger.update(prefix+"base_eulerZYX_dot", base_eulerZYX_dot_);
+    logger.update(prefix+"joint_pos", joint_pos_);
+    logger.update(prefix+"joint_vel", joint_vel_);
+
+    // base_R 展平为 9 维向量
+    Eigen::VectorXd R_flat(9);
+    for(int i=0;i<3;i++)
+        for(int j=0;j<3;j++)
+            R_flat(i*3 + j) = base_R_(i,j);
+    logger.update(prefix+"base_R", R_flat);
+
+    // base_quat 作为 4 维向量
+    Eigen::VectorXd quat_vec(4);
+    quat_vec << base_quat_.x(), base_quat_.y(), base_quat_.z(), base_quat_.w();
+    logger.update(prefix+"base_quat", quat_vec);
+
+    logger.update(prefix+"rbd_state", rbd_state()); // rbd_state() 会自动更新
+
+    // --- 自定义状态 ---
+    for (auto& kv : custom_states_) {
+        const std::string& name = kv.first;
+        CustomState& cs = kv.second;       // 引用，避免拷贝
+        updateCustomState();               // 确保 state_vec 最新
+        logger.update(prefix+name, cs.state_vec); // 直接传 Eigen::VectorXd
+    }
 }
 
 // --- 姿态更新方法实现 ---

@@ -56,5 +56,5 @@ frictionConeTask:
 # WeightedWbc
 weight:
   baseAccel: 10
-  baseAccel: 10
+  contactForce: 10
   swingLeg: 100
