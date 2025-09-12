@@ -27,19 +27,19 @@ contact6DofNames: []
 
 baseAccelTask:
   baseAcc_kp:
-    - 1000.0      # p_base_x
-    - 1000.0      # p_base_y
-    - 1200.0      # p_base_z
-    - 200.0       # r_base_x
-    - 200.0       # r_base_y
-    - 200.0       # r_base_z
+    - 0.0       # p_base_x
+    - 0.0       # p_base_y
+    - 100.0       # p_base_z
+    - 0.0       # 
+    - 0.0       # 
+    - 0.0       # 
   baseAcc_kd:
-    - 15.0      # vx
-    - 15.0      # vy
-    - 30.0      # vz
-    - 20.0      # wx
-    - 20.0      # wy
-    - 20.0      # wz
+    - 0.0      # vx
+    - 0.0      # vy
+    - 0.1      # vz
+    - 0.0      # wx
+    - 0.0      # wy
+    - 0.0      # wz
 
 swingLegTask:
   kp: 350
@@ -55,6 +55,12 @@ frictionConeTask:
 
 # WeightedWbc
 weight:
-  baseAccel: 10
-  contactForce: 10
-  swingLeg: 100
+  baseAccel: 1
+  contactForce: 0.01
+  swingLeg: 0
+  jointTorque: 0
+
+# joint PD
+jointKp: 10
+jointKd: 0.5
+

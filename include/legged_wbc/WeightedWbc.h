@@ -17,12 +17,14 @@ class WeightedWbc : public WbcBase {
 
   void loadTasksSetting(const std::string& configFile) override;
 
+  void log(const vector_t& x) override;
+
  protected:
   virtual Task formulateConstraints();
   virtual Task formulateWeightedTasks(scalar_t period, std::string method = "centroidal");
 
  private:
-  scalar_t weightSwingLeg_, weightBaseAccel_, weightContactForce_;
+  scalar_t weightSwingLeg_, weightBaseAccel_, weightContactForce_, weightJointTorque_;
 };
 
 }  // namespace legged

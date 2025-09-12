@@ -102,21 +102,17 @@ void LeggedState::log(std::string prefix){
 
     // --- 主状态 ---
     logger.update(prefix+"base_pos", base_pos_);
-    logger.update(prefix+"base_eulerZYX", base_eulerZYX_);
+    logger.update(prefix+"base_eulerZYX", static_cast<Eigen::VectorXd>(base_eulerZYX_));
     logger.update(prefix+"base_lin_vel_W", base_lin_vel_W_);
     logger.update(prefix+"base_lin_vel_B", base_lin_vel_B_);
     logger.update(prefix+"base_ang_vel_W", base_ang_vel_W_);
     logger.update(prefix+"base_ang_vel_B", base_ang_vel_B_);
-    logger.update(prefix+"base_eulerZYX_dot", base_eulerZYX_dot_);
+    logger.update(prefix+"base_eulerZYX_dot", static_cast<Eigen::VectorXd>(base_eulerZYX_dot_));
     logger.update(prefix+"joint_pos", joint_pos_);
     logger.update(prefix+"joint_vel", joint_vel_);
 
     // base_R 展平为 9 维向量
-    Eigen::VectorXd R_flat(9);
-    for(int i=0;i<3;i++)
-        for(int j=0;j<3;j++)
-            R_flat(i*3 + j) = base_R_(i,j);
-    logger.update(prefix+"base_R", R_flat);
+    logger.update(prefix+"base_R", static_cast<Eigen::MatrixXd>(base_R_));
 
     // base_quat 作为 4 维向量
     Eigen::VectorXd quat_vec(4);

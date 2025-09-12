@@ -3,10 +3,13 @@
 //
 #include <pinocchio/fwd.hpp>  // forward declarations must be included first.
 
+#include "legged_wbc/Task.h"
 #include "legged_wbc/Types.h"
 #include "legged_wbc/ModelHelperFunctions.h"
 #include "legged_wbc/RotationDerivativesTransforms.h"
 #include "legged_wbc/WbcBase.h"
+
+#include <logger/CsvLogger.h>
 
 #include <iostream>
 #include <vector>
@@ -242,30 +245,36 @@ Task WbcBase::formulateBaseAccelTaskPD(scalar_t period) {
 
   Vector6 pos_error, vel_error, accel, b; 
 
-  Eigen::Vector3d eulerZYX_des = qDesired_.segment<3>(3);
-  Eigen::Vector3d eulerZYX = qMeasured_.segment<3>(3);
+  // Eigen::Vector3d eulerZYX_des = qDesired_.segment<3>(3);
+  // Eigen::Vector3d eulerZYX = qMeasured_.segment<3>(3);
 
-  Eigen::Matrix3d R_des = pinocchio::rpy::rpyToMatrix(eulerZYX_des.reverse());
-  Eigen::Matrix3d R = pinocchio::rpy::rpyToMatrix(eulerZYX.reverse());
+  // Eigen::Matrix3d R_des = pinocchio::rpy::rpyToMatrix(eulerZYX_des.reverse());
+  // Eigen::Matrix3d R = pinocchio::rpy::rpyToMatrix(eulerZYX.reverse());
 
-  pinocchio::SE3 T_des(R_des, qDesired_.head<3>());
-  pinocchio::SE3 T(R, qMeasured_.head<3>());
+  // pinocchio::SE3 T_des(R_des, qDesired_.head<3>());
+  // pinocchio::SE3 T(R, qMeasured_.head<3>());
 
-  pos_error = pinocchio::log6(T_des * T.inverse()).toVector();
+  // pos_error = pinocchio::log6(T_des * T.inverse()).toVector();
+  // // pos_error.head(3) = qDesired_.head<3>() - qMeasured_.head<3>();
 
-  Eigen::Vector3d eulerZYX_dot_des = vDesired_.segment<3>(3);
-  Eigen::Vector3d eulerZYX_dot = vMeasured_.segment<3>(3);
+  // Eigen::Vector3d eulerZYX_dot_des = vDesired_.segment<3>(3);
+  // Eigen::Vector3d eulerZYX_dot = vMeasured_.segment<3>(3);
   
-  Eigen::Vector3d angularVel_des = getGlobalAngularVelocityFromEulerAnglesZyxDerivatives(eulerZYX_des, eulerZYX_dot_des);
-  Eigen::Vector3d angularVel = getGlobalAngularVelocityFromEulerAnglesZyxDerivatives(eulerZYX, eulerZYX_dot);
+  // Eigen::Vector3d angularVel_des = getGlobalAngularVelocityFromEulerAnglesZyxDerivatives(eulerZYX_des, eulerZYX_dot_des);
+  // Eigen::Vector3d angularVel = getGlobalAngularVelocityFromEulerAnglesZyxDerivatives(eulerZYX, eulerZYX_dot);
 
-  vel_error << vDesired_.head<3>() - vMeasured_.head<3>(), 
-               angularVel_des - angularVel;
+  // vel_error << vDesired_.head<3>() - vMeasured_.head<3>(), 
+  //              angularVel_des - angularVel;
   
-  accel = baseAccelKp_.asDiagonal() * pos_error + baseAccelKd_.asDiagonal() * vel_error;
+  // accel = baseAccelKp_.asDiagonal() * pos_error + baseAccelKd_.asDiagonal() * vel_error;
 
-  b << accel.head<3>(), 
-      getEulerAnglesZyxDerivativesFromGlobalAngularAcceleration(eulerZYX, eulerZYX_dot, accel.segment<3>(3).eval());
+  // b << accel.head<3>(), 
+  //     getEulerAnglesZyxDerivativesFromGlobalAngularAcceleration(eulerZYX, eulerZYX_dot, accel.segment<3>(3).eval());
+
+  pos_error << qDesired_.head(6) - qMeasured_.head(6);
+  vel_error << vDesired_.head(6) - vMeasured_.head(6);
+  
+  b = baseAccelKp_.asDiagonal() * pos_error + baseAccelKd_.asDiagonal() * vel_error;
 
   if(verbose_) {
     std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
@@ -274,7 +283,8 @@ Task WbcBase::formulateBaseAccelTaskPD(scalar_t period) {
     std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
   }
       
-  return {a, b, matrix_t(), vector_t()};
+  baseAccTask_ = Task(a, b, matrix_t(), vector_t());
+  return baseAccTask_;
 }
 
 Task WbcBase::formulateSwingLegTask() {
@@ -304,7 +314,8 @@ Task WbcBase::formulateSwingLegTask() {
     std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
   }
   
-  return {a, b, matrix_t(), vector_t()};
+  swingLegTask_ = Task(a, b, matrix_t(), vector_t());
+  return swingLegTask_;
 }
 
 Task WbcBase::formulateContactForceTask() {
@@ -324,7 +335,25 @@ Task WbcBase::formulateContactForceTask() {
     std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
   }
   
-  return {a, b, matrix_t(), vector_t()};
+  contactForceTask_ = Task(a, b, matrix_t(), vector_t());
+  return contactForceTask_;
+}
+
+Task WbcBase::formulateJointTorqueTask() {
+  matrix_t a = matrix_t::Zero(leggedModel_.nJoints(), numDecisionVars_);
+  vector_t b = vector_t::Zero(a.rows());
+
+  a.rightCols(leggedModel_.nJoints()) = matrix_t::Identity(leggedModel_.nJoints(), leggedModel_.nJoints());
+
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] JointTorqueTask " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+  }
+  
+  jointTorqueTask_ = Task(a, b, matrix_t(), vector_t());
+  return jointTorqueTask_;
 }
 
 // 将 YAML list 转换为 Eigen::VectorXd
@@ -364,6 +393,9 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
   torqueLimits_ = yamlToEigenVector(configNode["torqueLimitsTask"]);
   frictionCoeff_ = configNode["frictionConeTask"]["frictionCoefficient"].as<double>();
 
+  jointKp_ = configNode["jointKp"].as<double>();
+  jointKd_ = configNode["jointKd"].as<double>();
+
   if(verbose_) {
     std::cout << std::fixed << std::setprecision(2) << std::endl;
     std::cout << "[WbcBase] mass: " << mass_ << std::endl;
@@ -377,7 +409,14 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
     std::cout << "[WbcBase] swingKd: " << swingKd_ << std::endl;
     std::cout << "[WbcBase] torqueLimits: " << torqueLimits_.transpose() << std::endl;
     std::cout << "[WbcBase] frictionCoeff: " << frictionCoeff_ << std::endl;
+
+    std::cout << "[WbcBase] jointKp: " << jointKp_ << std::endl;
+    std::cout << "[WbcBase] jointKd: " << jointKd_ << std::endl;
   }
+}
+
+void WbcBase::log(const vector_t& x){
+    CsvLogger& logger = CsvLogger::getInstance();
 }
 
 }  // namespace legged
