@@ -29,17 +29,17 @@ baseAccelTask:
   baseAcc_kp:
     - 0.0       # p_base_x
     - 0.0       # p_base_y
-    - 100.0       # p_base_z
-    - 0.0       # 
-    - 0.0       # 
-    - 0.0       # 
+    - 9.0       # p_base_z
+    - 10.0       # yaw
+    - 10.0       # pitch
+    - 400.0       # roll
   baseAcc_kd:
     - 0.0      # vx
     - 0.0      # vy
-    - 0.1      # vz
-    - 0.0      # wx
-    - 0.0      # wy
-    - 0.0      # wz
+    - 3.0       # vz
+    - 1.0      # dyaw
+    - 1.0      # dpitch
+    - 20.0     # droll
 
 swingLegTask:
   kp: 350
@@ -54,6 +54,8 @@ frictionConeTask:
   frictionCoefficient: 0.3
 
 # WeightedWbc
+qpSolver: osqp      # osqp qpOASES
+
 weight:
   baseAccel: 1
   contactForce: 0.01

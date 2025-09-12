@@ -56,7 +56,7 @@ void LeggedModel::loadUrdf(std::string urdfPath, std::string baseType, std::stri
     }
 
     verbose_ = verbose;
-    if (verbose_) {
+    if (true) {
         std::cout << "[LeggedModel] nDof: " << nDof() << std::endl; 
     }
 }

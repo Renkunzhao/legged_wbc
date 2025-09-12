@@ -1,9 +1,10 @@
+#include "legged_wbc/LeggedState.h"
+#include "logger/CsvLogger.h"
+
 #include <iostream>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
-
-#include "legged_wbc/LeggedState.h"
-#include "logger/CsvLogger.h"
+#include <pinocchio/math/rpy.hpp>
 
 // private
 std::map<std::string, Eigen::VectorXd> LeggedState::getStateMap() const {
@@ -134,13 +135,14 @@ void LeggedState::log(std::string prefix){
 void LeggedState::setBaseRotationFromMatrix(const Eigen::Matrix3d& R) {
     base_R_ = R;
     base_quat_ = Eigen::Quaterniond(R);
-    base_eulerZYX_ = R.eulerAngles(2, 1, 0); // ZYX 欧拉角
+    base_eulerZYX_ = pinocchio::rpy::matrixToRpy(base_R_).reverse(); // ZYX 欧拉角
 }
 
 void LeggedState::setBaseRotationFromQuaternion(const Eigen::Quaterniond& quat) {
     base_quat_ = quat.normalized(); // 确保四元数是单位四元数
     base_R_ = base_quat_.toRotationMatrix();
-    base_eulerZYX_ = base_R_.eulerAngles(2, 1, 0);
+    
+    base_eulerZYX_ = pinocchio::rpy::matrixToRpy(base_R_).reverse(); // ZYX 欧拉角
 }
 
 void LeggedState::setBaseRotationFromQuaternion(const Eigen::VectorXd& quat) {
@@ -150,7 +152,7 @@ void LeggedState::setBaseRotationFromQuaternion(const Eigen::VectorXd& quat) {
 
     base_quat_ = Eigen::Quaterniond(quat(3), quat(0), quat(1), quat(2)).normalized(); // 注意：Eigen::Quaterniond 的构造函数顺序是 (w, x, y, z)
     base_R_ = base_quat_.toRotationMatrix();
-    base_eulerZYX_ = base_R_.eulerAngles(2, 1, 0);
+    base_eulerZYX_ = pinocchio::rpy::matrixToRpy(base_R_).reverse(); // ZYX 欧拉角
 }
 
 void LeggedState::setBaseRotationFromEulerZYX(const Eigen::Vector3d& eulerZYX) {

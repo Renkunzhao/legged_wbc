@@ -7,6 +7,7 @@
 #include "legged_wbc/Types.h"
 #include "legged_wbc/ModelHelperFunctions.h"
 #include "legged_wbc/RotationDerivativesTransforms.h"
+#include "pinocchio/spatial/explog.hpp"
 #include "legged_wbc/WbcBase.h"
 
 #include <logger/CsvLogger.h>
@@ -245,11 +246,12 @@ Task WbcBase::formulateBaseAccelTaskPD(scalar_t period) {
 
   Vector6 pos_error, vel_error, accel, b; 
 
-  // Eigen::Vector3d eulerZYX_des = qDesired_.segment<3>(3);
-  // Eigen::Vector3d eulerZYX = qMeasured_.segment<3>(3);
+  Eigen::Vector3d eulerZYX_des = qDesired_.segment<3>(3);
+  Eigen::Vector3d eulerZYX = qMeasured_.segment<3>(3);
 
-  // Eigen::Matrix3d R_des = pinocchio::rpy::rpyToMatrix(eulerZYX_des.reverse());
-  // Eigen::Matrix3d R = pinocchio::rpy::rpyToMatrix(eulerZYX.reverse());
+  // This should be noted that euler angles in q_pinocchio is stored in (yaw, pitch, roll) order, but rpyToMatrix function require (roll, pitch, yaw)
+  Eigen::Matrix3d R_des = pinocchio::rpy::rpyToMatrix(eulerZYX_des.reverse());
+  Eigen::Matrix3d R = pinocchio::rpy::rpyToMatrix(eulerZYX.reverse());
 
   // pinocchio::SE3 T_des(R_des, qDesired_.head<3>());
   // pinocchio::SE3 T(R, qMeasured_.head<3>());
@@ -271,7 +273,13 @@ Task WbcBase::formulateBaseAccelTaskPD(scalar_t period) {
   // b << accel.head<3>(), 
   //     getEulerAnglesZyxDerivativesFromGlobalAngularAcceleration(eulerZYX, eulerZYX_dot, accel.segment<3>(3).eval());
 
+  // directly subtract euler angles
   pos_error << qDesired_.head(6) - qMeasured_.head(6);
+
+  // rotation matrix: left multiply log3(R_des * R^T) is angular velocity in world frame, but in ddq_pinocchio, it should be ddeuler
+  // pos_error << qDesired_.head(3) - qMeasured_.head(3), 
+  //             - pinocchio::rpy::computeRpyJacobianInverse(eulerZYX) * pinocchio::log3(R_des * R.transpose()).reverse();
+
   vel_error << vDesired_.head(6) - vMeasured_.head(6);
   
   b = baseAccelKp_.asDiagonal() * pos_error + baseAccelKd_.asDiagonal() * vel_error;
@@ -396,7 +404,7 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
   jointKp_ = configNode["jointKp"].as<double>();
   jointKd_ = configNode["jointKd"].as<double>();
 
-  if(verbose_) {
+  if(true) {
     std::cout << std::fixed << std::setprecision(2) << std::endl;
     std::cout << "[WbcBase] mass: " << mass_ << std::endl;
     std::cout << "[WbcBase] numDecisionVars: " << numDecisionVars_ << std::endl;

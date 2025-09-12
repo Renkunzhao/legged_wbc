@@ -24,7 +24,27 @@ class WeightedWbc : public WbcBase {
   virtual Task formulateWeightedTasks(scalar_t period, std::string method = "centroidal");
 
  private:
+  std::string qpSolver_ = "qpOASES";
   scalar_t weightSwingLeg_, weightBaseAccel_, weightContactForce_, weightJointTorque_;
+
+  // --- solver backends 封装 ---
+  vector_t solveWithQPOases(const Eigen::MatrixXd& H,
+                            const vector_t& g,
+                            const Eigen::MatrixXd& A,
+                            const vector_t& lbA,
+                            const vector_t& ubA,
+                            int maxWsr = 20);
+
+  vector_t solveWithOSQP(const Eigen::MatrixXd& H,
+                         const vector_t& g,
+                         const Eigen::MatrixXd& A,
+                         const vector_t& lbA,
+                         const vector_t& ubA,
+                         double hessian_reg = 1e-9);
+
+  static Eigen::SparseMatrix<double> toSparse(const Eigen::MatrixXd& M) {
+    return M.sparseView();
+  }
 };
 
 }  // namespace legged

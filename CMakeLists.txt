@@ -4,6 +4,7 @@ project(legged_wbc VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+add_compile_options(-Wno-return-type -Wno-deprecated-declarations)
 
 ##############################
 # 1️⃣ ROS1 / Catkin 支持
@@ -26,6 +27,8 @@ find_package(Eigen3 REQUIRED)
 find_package(pinocchio REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(qpOASES REQUIRED)
+find_package(osqp REQUIRED)
+find_package(OsqpEigen REQUIRED)
 find_package(logger REQUIRED)
 
 # include 目录
@@ -49,11 +52,14 @@ add_library(${PROJECT_NAME} STATIC
     src/WeightedWbc.cpp
     src/LeggedState.cpp
     src/LeggedModel.cpp
+    src/QP_problems.cpp
 )
 
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME} PUBLIC
     ${pinocchio_LIBRARIES}
     ${qpOASES_LIBRARY}
+    osqp::osqp
+    OsqpEigen::OsqpEigen
     yaml-cpp
     logger::CsvLogger
 )
@@ -64,6 +70,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${EIGEN3_INCLUDE_DIRS}
     ${pinocchio_INCLUDE_DIRS}
     ${qpOASES_INCLUDE_DIR}
+    /usr/local/include/osqp
 )
 
 ##############################
@@ -109,7 +116,16 @@ add_executable(WeightedWbc_test
     src/WbcBase.cpp
     src/WeightedWbc.cpp
 )
-target_link_libraries(WeightedWbc_test ${PROJECT_NAME} ${pinocchio_LIBRARIES} ${qpOASES_LIBRARY} yaml-cpp)
+target_link_libraries(WeightedWbc_test ${PROJECT_NAME} ${pinocchio_LIBRARIES} ${qpOASES_LIBRARY} OsqpEigen::OsqpEigen osqp::osqp yaml-cpp)
+
+add_executable(QP_problems 
+    test/QP_problems_test.cpp
+    src/QP_problems.cpp
+)
+target_link_libraries(QP_problems ${pinocchio_LIBRARIES} OsqpEigen::OsqpEigen osqp::osqp)
+target_include_directories(QP_problems PUBLIC
+    /usr/local/include/osqp
+)
 
 ##############################
 # 5️⃣ ROS1 测试与安装
