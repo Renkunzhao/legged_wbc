@@ -5,6 +5,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <pinocchio/math/rpy.hpp>
+#include <stdexcept>
+#include <vector>
 
 // private
 std::map<std::string, Eigen::VectorXd> LeggedState::getStateMap() const {
@@ -35,7 +37,15 @@ void LeggedState::updateCustomState() {
         int pos = 0;
         for (const auto& elem_name : custom_state.elements) {
             const Eigen::VectorXd& vec = state_map.at(elem_name);
-            custom_state.state_vec.segment(pos, vec.size()) = vec;
+            if (!custom_state.joint_order.empty() &&
+                (elem_name == "joint_pos" || elem_name == "joint_vel")) {
+                // 需要重排
+                Eigen::VectorXd reordered;
+                reorderJoints(vec, joint_names_, custom_state.joint_order, reordered);
+                custom_state.state_vec.segment(pos, reordered.size()) = reordered;
+            } else { 
+                custom_state.state_vec.segment(pos, vec.size()) = vec;
+            }
             pos += vec.size();
         }
     }
@@ -68,7 +78,10 @@ Eigen::Vector3d LeggedState::AngularVelocityW2eulerZYX(Eigen::Vector3d eulerZYX,
 // public
 // --- 构造函数实现 ---
 // 构造函数：仅作为数据容器
-void LeggedState::init(int num_joints) {
+void LeggedState::init(int num_joints, std::vector<std::string> joint_names) {
+    if (joint_names.size()!=num_joints) {
+        throw std::runtime_error("[LeggedState] num_joints and size of joint_names didn't match.");
+    }
     // 默认初始化所有状态为零或单位矩阵/四元数
     base_pos_.setZero();
     base_R_.setIdentity();
@@ -83,6 +96,7 @@ void LeggedState::init(int num_joints) {
 
     // 初始化关节向量大小
     num_joints_ = num_joints;
+    joint_names_ = joint_names;
     joint_pos_.resize(num_joints_);
     joint_vel_.resize(num_joints_);
 
@@ -196,6 +210,29 @@ void LeggedState::setBaseEulerZYXDot(const Eigen::Vector3d& base_eulerZYX_dot) {
     base_ang_vel_B_ = base_R_.transpose() * base_ang_vel_W_;
 }
 
+// Set joint pos and vel
+void LeggedState::setJointPos(const Eigen::VectorXd& joint_pos, const std::vector<std::string>& joint_order) { 
+    if (joint_order.empty()) {
+        if (joint_pos.size() != joint_pos_.size()) {
+            throw std::runtime_error("[LeggedState] joint_pos size mismatch.");
+        }
+        joint_pos_ = joint_pos; 
+    } else {
+        reorderJoints(joint_pos, joint_order, joint_names_, joint_pos_);
+    }
+}
+
+void LeggedState::setJointVel(const Eigen::VectorXd& joint_vel, const std::vector<std::string>& joint_order) {
+    if (joint_order.empty()) {
+        if (joint_vel.size() != joint_vel_.size()) {
+            throw std::runtime_error("[LeggedState] joint_vel size mismatch.");
+        }
+        joint_vel_ = joint_vel;
+    } else {
+        reorderJoints(joint_vel, joint_order, joint_names_, joint_vel_);
+    }
+}
+
 // --- 完整更新方法实现 ---
 
 void LeggedState::setFromRbdState(const Eigen::VectorXd& rbd_state) {
@@ -270,9 +307,9 @@ void LeggedState::setFromCustomState(const std::string& state_name, const Eigen:
         } else if (elem_name == "base_eulerZYX_dot") {
             setBaseEulerZYXDot(segment);
         } else if (elem_name == "joint_pos") {
-            setJointPos(segment);
+            setJointPos(segment, custom_state.joint_order);
         } else if (elem_name == "joint_vel") {
-            setJointVel(segment);
+            setJointVel(segment, custom_state.joint_order);
         } else {
             throw std::runtime_error("Unknown element: " + elem_name);
         }

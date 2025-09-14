@@ -1,14 +1,12 @@
 //
-// Created by qiayuan on 2022/7/1.
+// Created by Kunzhao on 2025/8/31.
 //
 #include <pinocchio/fwd.hpp>  // forward declarations must be included first.
 
 #include "legged_wbc/Task.h"
 #include "legged_wbc/Types.h"
 #include "legged_wbc/ModelHelperFunctions.h"
-#include "legged_wbc/Rotation.hpp"
-#include "legged_wbc/RotationDerivativesTransforms.h"
-#include "pinocchio/spatial/explog.hpp"
+#include "legged_wbc/Lie.h"
 #include "legged_wbc/WbcBase.h"
 
 #include <logger/CsvLogger.h>
@@ -23,6 +21,8 @@
 #include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/algorithm/rnea.hpp>
 #include <pinocchio/math/rpy.hpp>
+
+using namespace Lie;
 
 namespace legged {
 

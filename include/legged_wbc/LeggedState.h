@@ -41,6 +41,7 @@ private:
     
     // 关节状态
     size_t num_joints_;
+    std::vector<std::string> joint_names_;
     Eigen::VectorXd joint_pos_;
     Eigen::VectorXd joint_vel_;
 
@@ -52,6 +53,7 @@ private:
     struct CustomState {
         std::vector<std::string> elements;
         Eigen::VectorXd state_vec;
+        std::vector<std::string> joint_order;
     };
 
     std::map<std::string, CustomState> custom_states_;
@@ -93,8 +95,8 @@ public:
      * @param num_joints 机器人关节数
      */
     LeggedState() = default;
-    LeggedState(int num_joints) {init(num_joints);}
-    void init(int num_joints);
+    LeggedState(int num_joints, std::vector<std::string> joint_names) {init(num_joints, joint_names);}
+    void init(int num_joints, std::vector<std::string> joint_names);
 
     /**
      * @brief 创建自定义状态。
@@ -112,7 +114,7 @@ public:
      *           "joint_pos",
      *           "joint_vel"}
      */
-    void createCustomState(const std::string& state_name, const std::vector<std::string>& state_elements) {
+    void createCustomState(const std::string& state_name, const std::vector<std::string>& state_elements, std::vector<std::string> joint_order = {}) {
         if (custom_states_.count(state_name)) {
             throw std::runtime_error("Custom state already exists: " + state_name);
         }
@@ -120,6 +122,7 @@ public:
         CustomState state;
         state.elements = state_elements;
         state.state_vec.resize(getCustomeStateSize(state_elements));
+        state.joint_order = joint_order;    
         custom_states_[state_name] = std::move(state);
     }
 
@@ -200,13 +203,13 @@ public:
      * @brief 设置关节位置。
      * @param joint_pos 关节位置向量
      */
-    void setJointPos(const Eigen::VectorXd& joint_pos) { joint_pos_ = joint_pos; }
+    void setJointPos(const Eigen::VectorXd& joint_pos, const std::vector<std::string>& joint_order = {});
 
     /**
      * @brief 设置关节速度。
      * @param joint_vel 关节速度向量
      */
-    void setJointVel(const Eigen::VectorXd& joint_vel) { joint_vel_ = joint_vel; }
+    void setJointVel(const Eigen::VectorXd& joint_vel, const std::vector<std::string>& joint_order = {});
     
     // 完整状态更新
     /**
@@ -236,13 +239,43 @@ public:
     const Eigen::VectorXd& joint_pos() const { return joint_pos_; }
     const Eigen::VectorXd& joint_vel() const { return joint_vel_; }
 
+    const std::vector<std::string>& joint_names() const {return joint_names_;}
+
     int getRbdStateSize() const { return 2*(num_joints_+6); }
     const Eigen::VectorXd& rbd_state() { updateRbdState(); return rbd_state_; }
 
     int getCustomeStateSize(const std::vector<std::string>& state_elements);
+    const std::vector<std::string>& getCustomeJointOrder(const std::string& state_name) {
+      return custom_states_.at(state_name).joint_order;
+    }
     const Eigen::VectorXd& custom_state(const std::string& state_name) { 
       updateCustomState(); 
       return custom_states_.at(state_name).state_vec; 
+    }
+
+    static void reorderJoints(const Eigen::VectorXd& input,
+                    const std::vector<std::string>& input_order,
+                    const std::vector<std::string>& target_order,
+                    Eigen::VectorXd& output) 
+    {
+        if (input.size() != (int)input_order.size() ||
+            input_order.size() != target_order.size()) {
+            throw std::runtime_error("[LeggedState] joint vector or order size mismatch.");
+        }
+
+        std::map<std::string, int> order_map;
+        for (size_t i = 0; i < input_order.size(); ++i) {
+            order_map[input_order[i]] = i;
+        }
+
+        output.resize(target_order.size());
+        for (size_t i = 0; i < target_order.size(); ++i) {
+            auto it = order_map.find(target_order[i]);
+            if (it == order_map.end()) {
+                throw std::runtime_error("[LeggedState] joint name " + target_order[i] + " not found in input_order.");
+            }
+            output[i] = input[it->second];
+        }
     }
 };
 

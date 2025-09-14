@@ -29,7 +29,7 @@ private:
     pinocchio::Data data_;
 
     size_t nJoints_;
-    LeggedState leggedState_;
+    std::vector<std::string> jointNames_;
 
     size_t nqBase_;
     std::string baseName_;               // 基座名称
@@ -53,6 +53,8 @@ public:
 
     size_t nDof() const {return  nJoints_ + 6;}
     size_t nJoints() const {return  nJoints_;}
+    const std::vector<std::string>& jointNames() const {return jointNames_;}
+
     size_t nqBase() const {return  nqBase_;}
 
     Eigen::Vector3d com(const Eigen::VectorXd& q_pin) {return pinocchio::centerOfMass(model_, data_, q_pin);}
@@ -72,6 +74,18 @@ public:
     Eigen::VectorXd inverseKine3Dof(Eigen::VectorXd qBase, const std::vector<Eigen::Vector3d>& contact3DofPoss);
 
     void loadUrdf(std::string urdfPath, std::string baseType, std::string baseName, std::vector<std::string> contact3DofNames, std::vector<std::string> contact6DofNames, bool verbose = false);
+
+    // This function call createCustomState of leggedState to create a custom state (consistent with q,v used in LeggedModel) in leggedState 
+    void creatPinoState(LeggedState& leggedState) const {
+        // creat q_pinocchio and v_pinocchio
+        if (baseType_ == "quaternion") {
+            leggedState.createCustomState("q_pin", {"base_pos", "base_quat", "joint_pos"}, jointNames_);
+            leggedState.createCustomState("v_pin", {"base_lin_vel_B", "base_ang_vel_B", "joint_vel"}, jointNames_);
+        } else if (baseType_ == "eulerZYX") {
+            leggedState.createCustomState("q_pin", {"base_pos", "base_eulerZYX", "joint_pos"}, jointNames_);
+            leggedState.createCustomState("v_pin", {"base_lin_vel_W", "base_eulerZYX_dot", "joint_vel"}, jointNames_);
+        }
+    }
 };
 
 #endif // LEGGEDMODEL_H

@@ -23,7 +23,11 @@ int main() {
               << "\nroll\n" << roll.matrix() 
               << std::endl;
 
-    LeggedState state_container(NUM_JOINTS);
+    LeggedState state_container(NUM_JOINTS, {
+      "FL_hip", "FL_thigh", "FL_calf",
+      "FR_hip", "FR_thigh", "FR_calf",
+      "RL_hip", "RL_thigh", "RL_calf",
+      "RR_hip", "RR_thigh", "RR_calf"});
     // 姿态
     // 随机给定 eulerZYX, 通过 setBaseRotationFromEulerZYX 设置为基座姿态
     // 计算旋转矩阵 base_R，再通过 setBaseRotationFromMatrix 设置为姿态
@@ -82,6 +86,20 @@ int main() {
     auto custom_state = state_container.custom_state("rbd_state");
     std::cout << "rbdstate (custom):  " << custom_state.transpose() << std::endl;
     std::cout << "error:" << (state - custom_state).norm() << std::endl;
+
+    state_container.createCustomState("joint_order_state", 
+      {"base_eulerZYX", "base_pos", "joint_pos", "base_ang_vel_W", "base_lin_vel_W", "joint_vel"},
+      {
+      "FR_hip", "FR_thigh", "FR_calf",
+      "FL_hip", "FL_thigh", "FL_calf",
+      "RR_hip", "RR_thigh", "RR_calf",
+      "RL_hip", "RL_thigh", "RL_calf"
+    });
+    state_container.setFromCustomState("joint_order_state",state);
+    std::cout << "joint_order_state:  " << state_container.custom_state("joint_order_state").transpose() << std::endl;
+
+    state_container.setJointVel(state.tail(12));
+    std::cout << "joint_order_state:  " << state_container.custom_state("joint_order_state").transpose() << std::endl;
 
     return 0;
 }

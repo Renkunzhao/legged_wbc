@@ -1,3 +1,4 @@
+#pragma once
 #include <cmath>
 #include <cstdlib>
 #include <stdexcept>
@@ -9,6 +10,8 @@
 #include <pinocchio/math/rpy.hpp>
 #include <pinocchio/math/rotation.hpp>
 
+namespace Lie {
+
 using namespace Eigen;
 typedef Eigen::Matrix<double, 6, 1> Vector6d;
 
@@ -19,7 +22,7 @@ inline int sgn(T val) {
 
 // w_hat * v = w x v
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p7 equ-20)
-Eigen::Matrix3d hat(Eigen::Vector3d w){
+inline Eigen::Matrix3d hat(Eigen::Vector3d w){
     Eigen::Matrix3d w_hat;
     double x = w[0];
     double y = w[1];
@@ -30,7 +33,7 @@ Eigen::Matrix3d hat(Eigen::Vector3d w){
     return w_hat;
 }
 
-Eigen::Vector3d vee(Eigen::Matrix3d w_hat){
+inline Eigen::Vector3d vee(Eigen::Matrix3d w_hat){
     if (!w_hat.isApprox(-w_hat.transpose(), 1e-6)) {
         throw std::runtime_error("[Rotation] vee: input is not skew-symmetric.");
     }
@@ -38,7 +41,7 @@ Eigen::Vector3d vee(Eigen::Matrix3d w_hat){
     return {w_hat(2,1), w_hat(0,2), w_hat(1,0)};
 }
 
-Eigen::Vector4d quat_xyzw(Eigen::Vector4d q_wxyz){
+inline Eigen::Vector4d quat_xyzw(Eigen::Vector4d q_wxyz){
     double qw = q_wxyz(0);
     Eigen::Vector3d qv = q_wxyz.tail(3);
     Eigen::Vector4d q_xyzw;
@@ -46,7 +49,7 @@ Eigen::Vector4d quat_xyzw(Eigen::Vector4d q_wxyz){
     return q_xyzw;
 }
 
-Eigen::Vector4d quat_wxyz(Eigen::Vector4d q_xyzw){
+inline Eigen::Vector4d quat_wxyz(Eigen::Vector4d q_xyzw){
     Eigen::Vector3d qv = q_xyzw.head(3);
     double qw = q_xyzw(3);
     Eigen::Vector4d q_wxyz;
@@ -55,7 +58,7 @@ Eigen::Vector4d quat_wxyz(Eigen::Vector4d q_xyzw){
 }
 
 // Unless specify, all quat following store in [w, x, y, z], and w>=0
-Eigen::Vector4d quat_wPositive(Eigen::Vector4d q){
+inline Eigen::Vector4d quat_wPositive(Eigen::Vector4d q){
     double w = q(0);
     return (w >= 0.0) ? q : -q;
 }
@@ -64,7 +67,7 @@ Eigen::Vector4d quat_wPositive(Eigen::Vector4d q){
 // Robot Dynamics Lecture Notes (p20 equ-2.57)
 // (https://ethz.ch/content/dam/ethz/special-interest/mavt/robotics-n-intelligent-systems/rsl-dam/documents/RobotDynamics2017/RD_HS2017script.pdf)
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p7 equ-19)
-Eigen::Matrix4d quat_productMatL(Eigen::Vector4d q){
+inline Eigen::Matrix4d quat_productMatL(Eigen::Vector4d q){
     Eigen::Matrix4d QL;
     double qw = q(0);
     Eigen::Vector3d qv = q.tail(3);
@@ -75,7 +78,7 @@ Eigen::Matrix4d quat_productMatL(Eigen::Vector4d q){
 }
 
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p7 equ-19)
-Eigen::Matrix4d quat_productMatR(Eigen::Vector4d q){
+inline Eigen::Matrix4d quat_productMatR(Eigen::Vector4d q){
     Eigen::Matrix4d QR;
     double qw = q(0);
     Eigen::Vector3d qv = q.tail(3);
@@ -86,12 +89,12 @@ Eigen::Matrix4d quat_productMatR(Eigen::Vector4d q){
 }
 
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p7 equ-17)
-Eigen::Vector4d quat_product(Eigen::Vector4d q1, Eigen::Vector4d q2){
+inline Eigen::Vector4d quat_product(Eigen::Vector4d q1, Eigen::Vector4d q2){
     return quat_productMatL(q1) * q2;
 }
 
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p8 equ-23)
-Eigen::Vector4d quat_conjugate(Eigen::Vector4d q){
+inline Eigen::Vector4d quat_conjugate(Eigen::Vector4d q){
     Eigen::Vector4d q_conjugate;
     double qw = q(0);
     Eigen::Vector3d qv = q.tail(3);
@@ -99,7 +102,7 @@ Eigen::Vector4d quat_conjugate(Eigen::Vector4d q){
     return q_conjugate;
 }
 
-void quat_isNormalized(Eigen::Vector4d q){
+inline void quat_isNormalized(Eigen::Vector4d q){
     if(std::abs(q.norm() - 1.0) > 1e-6) {
         std::cout << "[Rotation] q: " << q.transpose() << " norm: " << q.norm() << std::endl;
         throw std::runtime_error("[Rotation] quaternion is not normalized.");
@@ -108,7 +111,7 @@ void quat_isNormalized(Eigen::Vector4d q){
 
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p23 equ-107)
 // x' = q * x * q'
-Eigen::Vector3d quat_rotateVec(Eigen::Vector4d q, Eigen::Vector3d x){
+inline Eigen::Vector3d quat_rotateVec(Eigen::Vector4d q, Eigen::Vector3d x){
     quat_isNormalized(q);
     Eigen::Vector4d x_quat;
     x_quat << 0, x;
@@ -120,7 +123,7 @@ Eigen::Vector3d quat_rotateVec(Eigen::Vector4d q, Eigen::Vector3d x){
 }
 
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p22 equ-101)
-Eigen::Vector4d quat_Exp(Eigen::Vector3d rotation_vec){
+inline Eigen::Vector4d quat_Exp(Eigen::Vector3d rotation_vec){
     if (rotation_vec.norm() < 1e-6) {
         return {1, 0, 0, 0};
     }
@@ -132,7 +135,7 @@ Eigen::Vector4d quat_Exp(Eigen::Vector3d rotation_vec){
 }
 
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p23 equ-105)
-Eigen::Vector3d quat_Log(Eigen::Vector4d q){
+inline Eigen::Vector3d quat_Log(Eigen::Vector4d q){
     quat_isNormalized(q);
     double qw = q(0);
     Eigen::Vector3d qv = q.tail(3);
@@ -153,7 +156,7 @@ Eigen::Vector3d quat_Log(Eigen::Vector4d q){
 // err = q_des \boxminus_{L} q = Log(q'*q_des), err/dt should be angular vel in local frame
 // q_des and q has to be normalized 
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p44 equ-192)
-Eigen::Vector3d quat_boxminusL(Eigen::Vector4d q_des, Eigen::Vector4d q){
+inline Eigen::Vector3d quat_boxminusL(Eigen::Vector4d q_des, Eigen::Vector4d q){
     quat_isNormalized(q_des);
     quat_isNormalized(q);
     Eigen::Vector4d q_conjugate = quat_conjugate(q);
@@ -164,7 +167,7 @@ Eigen::Vector3d quat_boxminusL(Eigen::Vector4d q_des, Eigen::Vector4d q){
 // err = q_des \boxminus_{W} q = Log(q_des*q'), err/dt should be angular vel in world frame
 // q_des and q has to be normalized 
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p45 equ-195)
-Eigen::Vector3d quat_boxminusW(Eigen::Vector4d q_des, Eigen::Vector4d q){
+inline Eigen::Vector3d quat_boxminusW(Eigen::Vector4d q_des, Eigen::Vector4d q){
     quat_isNormalized(q_des);
     quat_isNormalized(q);
     Eigen::Vector4d q_conjugate = quat_conjugate(q);
@@ -173,7 +176,7 @@ Eigen::Vector3d quat_boxminusW(Eigen::Vector4d q_des, Eigen::Vector4d q){
 }
 
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p25 equ-115)
-Eigen::Matrix3d quat_ToR(Eigen::Vector4d q){
+inline Eigen::Matrix3d quat_ToR(Eigen::Vector4d q){
     quat_isNormalized(q);
     double qw = q(0);
     Eigen::Vector3d qv = q.tail(3);
@@ -181,7 +184,7 @@ Eigen::Matrix3d quat_ToR(Eigen::Vector4d q){
     return (qw*qw - qv.transpose()*qv)*I + 2*qv*qv.transpose() + 2*qw*hat(qv);
 }
 
-void R_isRotationMatrix(Eigen::Matrix3d R){
+inline void R_isRotationMatrix(Eigen::Matrix3d R){
     Eigen::Matrix3d RRT = R * R.transpose();
     if (!RRT.isApprox(Eigen::Matrix3d::Identity(), 1e-6)) {
         std::cout << "R*R^T\n" << RRT << std::endl;
@@ -193,7 +196,7 @@ void R_isRotationMatrix(Eigen::Matrix3d R){
 
 // Rodrigues rotation formula
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p18 equ-78)
-Eigen::Matrix3d R_Exp(Eigen::Vector3d rotation_vec){
+inline Eigen::Matrix3d R_Exp(Eigen::Vector3d rotation_vec){
     if (rotation_vec.norm() < 1e-6) {
         return Eigen::Matrix3d::Identity();
     }
@@ -204,7 +207,7 @@ Eigen::Matrix3d R_Exp(Eigen::Vector3d rotation_vec){
 }
 
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p19 equ-80)
-Eigen::Vector3d R_Log(Eigen::Matrix3d R){
+inline Eigen::Vector3d R_Log(Eigen::Matrix3d R){
     R_isRotationMatrix(R);
     double phi = acos((R.trace()-1)/2 );
     if (std::abs(phi) < 1e-6) {
@@ -216,7 +219,7 @@ Eigen::Vector3d R_Log(Eigen::Matrix3d R){
 
 // err = R_des \boxminus_{L} R = Log(R^T*R_des), err/dt should be angular vel in local frame
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p44 equ-192)
-Eigen::Vector3d R_boxminusL(Eigen::Matrix3d R_des, Eigen::Matrix3d R){
+inline Eigen::Vector3d R_boxminusL(Eigen::Matrix3d R_des, Eigen::Matrix3d R){
     R_isRotationMatrix(R_des);
     R_isRotationMatrix(R);
     return R_Log(R.transpose()*R_des);
@@ -224,7 +227,7 @@ Eigen::Vector3d R_boxminusL(Eigen::Matrix3d R_des, Eigen::Matrix3d R){
 
 // err = R_des \boxminus_{W} R = Log(R_des*R^T), err/dt should be angular vel in world frame
 // Quaternion kinematics for the error-state Kalman filter (https://arxiv.org/pdf/1711.02508 p45 equ-195)
-Eigen::Vector3d R_boxminusW(Eigen::Matrix3d R_des, Eigen::Matrix3d R){
+inline Eigen::Vector3d R_boxminusW(Eigen::Matrix3d R_des, Eigen::Matrix3d R){
     R_isRotationMatrix(R_des);
     R_isRotationMatrix(R);
     return R_Log(R_des*R.transpose());
@@ -232,7 +235,7 @@ Eigen::Vector3d R_boxminusW(Eigen::Matrix3d R_des, Eigen::Matrix3d R){
 
 // ETH - Robot Dynamics Lecture Notes (p19 equ-2.55)
 // https://ethz.ch/content/dam/ethz/special-interest/mavt/robotics-n-intelligent-systems/rsl-dam/documents/RobotDynamics2017/RD_HS2017script.pdf
-Eigen::Vector4d R_ToQuat(Eigen::Matrix3d R){
+inline Eigen::Vector4d R_ToQuat(Eigen::Matrix3d R){
     double& R11 = R(0,0);
     double& R12 = R(0,1);
     double& R13 = R(0,2);
@@ -250,14 +253,14 @@ Eigen::Vector4d R_ToQuat(Eigen::Matrix3d R){
 }
 
 // A micro Lie theory for state estimation in robotics (https://zhuanlan.zhihu.com/p/4741261658, p16, equ-168)
-Eigen::Matrix4d T_Rp(Eigen::Matrix3d R, Eigen::Vector3d p){
+inline Eigen::Matrix4d T_Rp(Eigen::Matrix3d R, Eigen::Vector3d p){
     Eigen::Matrix4d T;
     T << R,                                     p,
          Eigen::Vector3d::Zero().transpose(),   1;
     return T;
 }
 
-void T_isHomoTrans(Eigen::Matrix4d T){
+inline void T_isHomoTrans(Eigen::Matrix4d T){
     Eigen::Matrix3d R = T.block(0,0,3,3);
     Eigen::Vector3d p = T.block(0,3,3,1);
     Eigen::Vector4d bottomLine = {0,0,0,1};
@@ -268,7 +271,7 @@ void T_isHomoTrans(Eigen::Matrix4d T){
 }
 
 // A micro Lie theory for state estimation in robotics (https://zhuanlan.zhihu.com/p/4741261658, p16, equ-170)
-Eigen::Matrix4d T_inv(Eigen::Matrix4d T){
+inline Eigen::Matrix4d T_inv(Eigen::Matrix4d T){
     T_isHomoTrans(T);
     Eigen::Matrix3d R = T.block(0,0,3,3);
     Eigen::Vector3d p = T.block(0,3,3,1);
@@ -280,7 +283,7 @@ Eigen::Matrix4d T_inv(Eigen::Matrix4d T){
 
 // xi = [pho, theta]
 // A micro Lie theory for state estimation in robotics (https://zhuanlan.zhihu.com/p/4741261658, p16, equ-172, 174)
-Matrix4d T_Exp(Vector6d xi){
+inline Matrix4d T_Exp(Vector6d xi){
     Vector3d pho = xi.head(3);
     Vector3d theta = xi.tail(3);
     Matrix3d V;
@@ -297,7 +300,7 @@ Matrix4d T_Exp(Vector6d xi){
 }
 
 // A micro Lie theory for state estimation in robotics (https://zhuanlan.zhihu.com/p/4741261658, p16, equ-173, 174, 145, 146)
-Vector6d T_Log(Matrix4d T){
+inline Vector6d T_Log(Matrix4d T){
     T_isHomoTrans(T);
     Eigen::Matrix3d R = T.block(0,0,3,3);
     Eigen::Vector3d p = T.block(0,3,3,1);
@@ -317,15 +320,17 @@ Vector6d T_Log(Matrix4d T){
 
 // !!! Do not directly use this to do pd control because the translation part here are not exactly (p_des-p) 
 // err = Log6(T'*T_des)
-Vector6d T_boxminusL(Eigen::Matrix4d T_des, Eigen::Matrix4d T){
+inline Vector6d T_boxminusL(Eigen::Matrix4d T_des, Eigen::Matrix4d T){
     T_isHomoTrans(T_des);
     T_isHomoTrans(T);
     return T_Log(T_inv(T)*T_des);
 }
 
 // err = Log6(T_des*T')
-Vector6d T_boxminusW(Eigen::Matrix4d T_des, Eigen::Matrix4d T){
+inline Vector6d T_boxminusW(Eigen::Matrix4d T_des, Eigen::Matrix4d T){
     T_isHomoTrans(T_des);
     T_isHomoTrans(T);
     return T_Log(T_des*T_inv(T));
+}
+
 }

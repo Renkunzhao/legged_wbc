@@ -53,7 +53,6 @@ add_library(${PROJECT_NAME} STATIC
     src/WeightedWbc.cpp
     src/LeggedState.cpp
     src/LeggedModel.cpp
-    src/QP_problems.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
@@ -101,10 +100,10 @@ install(EXPORT ${PROJECT_NAME}Targets
 # 4️⃣ 可执行文件（独立测试）
 ##############################
 
-add_executable(Rotation_test
-    test/Rotation_test.cpp
+add_executable(Lie_test
+    test/Lie_test.cpp
 )
-target_link_libraries(Rotation_test ${pinocchio_LIBRARIES})
+target_link_libraries(Lie_test ${pinocchio_LIBRARIES})
 
 add_executable(LeggedState_test
     test/LeggedState_test.cpp
@@ -124,15 +123,6 @@ add_executable(WeightedWbc_test
     src/WeightedWbc.cpp
 )
 target_link_libraries(WeightedWbc_test ${PROJECT_NAME} ${pinocchio_LIBRARIES} ${qpOASES_LIBRARY} OsqpEigen::OsqpEigen osqp::osqp yaml-cpp)
-
-add_executable(QP_problems 
-    test/QP_problems_test.cpp
-    src/QP_problems.cpp
-)
-target_link_libraries(QP_problems ${pinocchio_LIBRARIES} OsqpEigen::OsqpEigen osqp::osqp)
-target_include_directories(QP_problems PUBLIC
-    /usr/local/include/osqp
-)
 
 ##############################
 # 5️⃣ ROS1 测试与安装
@@ -171,7 +161,7 @@ if(ament_cmake_FOUND)
     message("Found ament_cmake")
 
     # 安装可执行文件
-    install(TARGETS Rotation_test LeggedState_test LeggedModel_test WeightedWbc_test
+    install(TARGETS Lie_test LeggedState_test LeggedModel_test WeightedWbc_test
         DESTINATION lib/${PROJECT_NAME}
     )
 

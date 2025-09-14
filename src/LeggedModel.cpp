@@ -1,7 +1,11 @@
 #include "legged_wbc/LeggedModel.h"
+#include "legged_wbc/Lie.h"
 #include <cstddef>
 #include <pinocchio/parsers/urdf.hpp>
 #include <pinocchio/algorithm/frames.hpp>
+#include <pinocchio/math/rpy.hpp>
+
+using namespace Lie;
 
 void LeggedModel::loadUrdf(std::string urdfPath, std::string baseType, std::string baseName,
                            std::vector<std::string> contact3DofNames, 
@@ -24,10 +28,27 @@ void LeggedModel::loadUrdf(std::string urdfPath, std::string baseType, std::stri
         throw std::runtime_error("Invalid orientation type specified: " + baseType_);
     }
 
+    std::cout << "---- Joints ----" << std::endl;
+    for (size_t i = 0; i < model_.joints.size(); ++i) {
+        std::cout << i << ": " << model_.names[i] << std::endl;
+    }
+
+    std::cout << "---- Links (Frames of type BODY) ----" << std::endl;
+    for (size_t i = 0; i < model_.frames.size(); ++i) {
+        if (model_.frames[i].type == pinocchio::BODY) {
+            std::cout << i << ": " << model_.frames[i].name << std::endl;
+        }
+    }
+
     data_ = pinocchio::Data(model_);    
 
     nJoints_ = model_.nv - 6;
-    leggedState_.init(nJoints_);
+
+    // set joint order
+    // 跳过 universe 和 base
+    for (size_t i = 2; i < model_.names.size(); ++i) {
+        jointNames_.push_back(model_.names[i]);
+    }
 
     baseName_ = baseName;
 
@@ -105,20 +126,20 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::v
         throw std::runtime_error("Mismatch in number of target positions and foot names");
     }
 
-    leggedState_.clear();
-    leggedState_.setBasePos(qBase.head(3));
+    // TODO don't use 
+    Eigen::Matrix3d R;
     if (baseType_ == "quaternion") {
-        leggedState_.setBaseRotationFromQuaternion(qBase.tail(4));
+        // qBase xyzw, quat_ToR require wxyz
+        R = quat_ToR(quat_wxyz(qBase.tail(4)));
     }
     else if(baseType_ == "eulerZYX") {
-        leggedState_.setBaseRotationFromEulerZYX(qBase.tail(3));
+        R = pinocchio::rpy::rpyToMatrix(qBase.tail(3).reverse());
     }
-    Eigen::Matrix3d R = leggedState_.base_R();
 
     // contact3DofPoss is feet position in world frame, get foot pos relative to base in base frame using R^t * (contact3DofPoss - base_pos)
     Eigen::VectorXd desEEpos(nContacts3Dof_ * 3);
     for (size_t i = 0; i < contact3DofPoss.size(); i++) {
-        desEEpos.segment(3*i, 3) = R.transpose() * (contact3DofPoss[i] - leggedState_.base_pos());
+        desEEpos.segment(3*i, 3) = R.transpose() * (contact3DofPoss[i] - qBase.head(3));
     }
 
     int max_iters = 1000;
