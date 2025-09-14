@@ -28,14 +28,14 @@ contact6DofNames: []
 baseAccelTask:
   baseAcc_kp:
     - 400.0        # p_base_x
-    - 100.0       # p_base_y
+    - 400.0       # p_base_y
     - 400.0       # p_base_z
     - 400.0       # x
     - 400.0       # y
     - 400.0       # z
   baseAcc_kd:
     - 20.0       # vx
-    - 10.0      # vy
+    - 20.0      # vy
     - 20.0      # vz
     - 20.0      # wx
     - 20.0      # wy
