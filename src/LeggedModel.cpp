@@ -115,15 +115,17 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::v
     }
     Eigen::Matrix3d R = leggedState_.base_R();
 
-    Eigen::VectorXd contact3DofPoss_base(nContacts3Dof_ * 3);
+    // contact3DofPoss is feet position in world frame, get foot pos relative to base in base frame using R^t * (contact3DofPoss - base_pos)
+    Eigen::VectorXd desEEpos(nContacts3Dof_ * 3);
     for (size_t i = 0; i < contact3DofPoss.size(); i++) {
-        contact3DofPoss_base.segment(3*i, 3) = R.transpose() * (contact3DofPoss[i] - leggedState_.base_pos());
+        desEEpos.segment(3*i, 3) = R.transpose() * (contact3DofPoss[i] - leggedState_.base_pos());
     }
 
     int max_iters = 1000;
     double tol = 1e-4, dt = 0.1, damping = 1e-6;
     Eigen::VectorXd q = (model_.upperPositionLimit + model_.lowerPositionLimit)/2;
     if (verbose_) std::cout << "[LeggedModel] IK start from " << q.transpose() << std::endl;
+    // err = [err_foot_1^T, err_foot_2^T, ...]^T
     Eigen::VectorXd err = Eigen::VectorXd::Zero(nContacts3Dof_*3);
     Eigen::VectorXd dqj = Eigen::VectorXd::Zero(model_.nv-6);
     Eigen::MatrixXd J = Eigen::MatrixXd::Zero(nContacts3Dof_*3, model_.nv-6);
@@ -134,10 +136,10 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::v
         pinocchio::forwardKinematics(model_, data_, q);
         pinocchio::updateFramePlacements(model_, data_);
 
+        err = desEEpos;
         for (size_t i = 0; i < contact3DofIds_.size(); i++) {
-            err.segment(3*i, 3) = - data_.oMf[contact3DofIds_[i]].translation();
+            err.segment(3*i, 3) -= data_.oMf[contact3DofIds_[i]].translation();
         }
-        err += contact3DofPoss_base;
 
         if (err.norm() < tol) {
             if (verbose_) std::cout << "[LeggedModel] IK Converged in " << i << " iterations. Final error: " << err.norm() << std::endl;

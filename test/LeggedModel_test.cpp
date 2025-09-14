@@ -15,7 +15,7 @@ int main(int argc, char **argv)
     YAML::Node configNode = YAML::LoadFile(configFile);
 
     LeggedModel leggedModel;
-    leggedModel.loadUrdf(configNode["urdfPath"].as<std::string>(), "eulerZYX",
+    leggedModel.loadUrdf(configNode["urdfPath"].as<std::string>(), "quaternion",
                         configNode["baseName"].as<std::string>(), 
                         configNode["contact3DofNames"].as<std::vector<std::string>>(), 
                         configNode["contact6DofNames"].as<std::vector<std::string>>(),

@@ -12,7 +12,7 @@ std::map<std::string, Eigen::VectorXd> LeggedState::getStateMap() const {
 
     state_map["base_pos"] = base_pos_;
     state_map["base_R"] = Eigen::Map<const Eigen::VectorXd>(base_R_.data(), 9); // 3x3 → 9x1
-    state_map["base_quat"] = base_quat_.coeffs();
+    state_map["base_quat"] = base_quat_.coeffs();        // [x, y, z, w]
     state_map["base_eulerZYX"] = base_eulerZYX_;
     state_map["base_lin_vel_W"] = base_lin_vel_W_;
     state_map["base_lin_vel_B"] = base_lin_vel_B_;
@@ -145,6 +145,7 @@ void LeggedState::setBaseRotationFromQuaternion(const Eigen::Quaterniond& quat) 
     base_eulerZYX_ = pinocchio::rpy::matrixToRpy(base_R_).reverse(); // ZYX 欧拉角
 }
 
+// quat [xyzw]
 void LeggedState::setBaseRotationFromQuaternion(const Eigen::VectorXd& quat) {
     if (quat.size() != 4) {
       throw std::runtime_error("[LeggedState]: Quaternion vector must be of size 4.");

@@ -5,7 +5,6 @@
 
 #include <pinocchio/math/rpy.hpp>
 
-#include "Eigen/src/Core/Matrix.h"
 #include "Eigen/src/Geometry/Quaternion.h"
 
 const int NUM_JOINTS = 12;

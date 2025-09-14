@@ -6,6 +6,7 @@
 #include "legged_wbc/Task.h"
 #include "legged_wbc/Types.h"
 #include "legged_wbc/ModelHelperFunctions.h"
+#include "legged_wbc/Rotation.hpp"
 #include "legged_wbc/RotationDerivativesTransforms.h"
 #include "pinocchio/spatial/explog.hpp"
 #include "legged_wbc/WbcBase.h"
@@ -246,41 +247,19 @@ Task WbcBase::formulateBaseAccelTaskPD(scalar_t period) {
 
   Vector6 pos_error, vel_error, accel, b; 
 
-  Eigen::Vector3d eulerZYX_des = qDesired_.segment<3>(3);
-  Eigen::Vector3d eulerZYX = qMeasured_.segment<3>(3);
+  // https://github.com/stack-of-tasks/pinocchio/issues/16 pinocchio store quat in [x,y,w,z]
+  Eigen::Vector4d quat_des = quat_wxyz(qDesired_.segment(3,4));
+  Eigen::Vector4d quat = quat_wxyz(qMeasured_.segment(3,4));
+  pos_error << qDesired_.head(3) - qMeasured_.head(3),
+                quat_boxminusL(quat_des, quat);
 
-  // This should be noted that euler angles in q_pinocchio is stored in (yaw, pitch, roll) order, but rpyToMatrix function require (roll, pitch, yaw)
-  Eigen::Matrix3d R_des = pinocchio::rpy::rpyToMatrix(eulerZYX_des.reverse());
-  Eigen::Matrix3d R = pinocchio::rpy::rpyToMatrix(eulerZYX.reverse());
-
-  // pinocchio::SE3 T_des(R_des, qDesired_.head<3>());
-  // pinocchio::SE3 T(R, qMeasured_.head<3>());
-
-  // pos_error = pinocchio::log6(T_des * T.inverse()).toVector();
-  // // pos_error.head(3) = qDesired_.head<3>() - qMeasured_.head<3>();
-
-  // Eigen::Vector3d eulerZYX_dot_des = vDesired_.segment<3>(3);
-  // Eigen::Vector3d eulerZYX_dot = vMeasured_.segment<3>(3);
-  
-  // Eigen::Vector3d angularVel_des = getGlobalAngularVelocityFromEulerAnglesZyxDerivatives(eulerZYX_des, eulerZYX_dot_des);
-  // Eigen::Vector3d angularVel = getGlobalAngularVelocityFromEulerAnglesZyxDerivatives(eulerZYX, eulerZYX_dot);
-
-  // vel_error << vDesired_.head<3>() - vMeasured_.head<3>(), 
-  //              angularVel_des - angularVel;
-  
-  // accel = baseAccelKp_.asDiagonal() * pos_error + baseAccelKd_.asDiagonal() * vel_error;
-
-  // b << accel.head<3>(), 
-  //     getEulerAnglesZyxDerivativesFromGlobalAngularAcceleration(eulerZYX, eulerZYX_dot, accel.segment<3>(3).eval());
-
-  // directly subtract euler angles
-  pos_error << qDesired_.head(6) - qMeasured_.head(6);
-
-  // rotation matrix: left multiply log3(R_des * R^T) is angular velocity in world frame, but in ddq_pinocchio, it should be ddeuler
-  // pos_error << qDesired_.head(3) - qMeasured_.head(3), 
-  //             - pinocchio::rpy::computeRpyJacobianInverse(eulerZYX) * pinocchio::log3(R_des * R.transpose()).reverse();
-
-  vel_error << vDesired_.head(6) - vMeasured_.head(6);
+  // Representation-Free Model Predictive Control for Dynamic Motions in Quadrupeds (https://arxiv.org/pdf/2012.10002 p5 equ-29,30) 
+  Eigen::Vector3d w_des = vDesired_.segment(3,3);
+  Eigen::Vector3d w = vMeasured_.segment(3,3);
+  Eigen::Matrix3d R_des = quat_ToR(quat_des);
+  Eigen::Matrix3d R = quat_ToR(quat);
+  vel_error << vDesired_.head(3) - vMeasured_.head(3),
+               R.transpose()*R_des*w_des - w; 
   
   b = baseAccelKp_.asDiagonal() * pos_error + baseAccelKd_.asDiagonal() * vel_error;
 
@@ -379,7 +358,7 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
 
   verbose_ = configNode["verbose"].as<bool>();
 
-  leggedModel_.loadUrdf(configNode["urdfPath"].as<std::string>(), "eulerZYX",
+  leggedModel_.loadUrdf(configNode["urdfPath"].as<std::string>(), "quaternion",
                        configNode["baseName"].as<std::string>(), 
                        configNode["contact3DofNames"].as<std::vector<std::string>>(), 
                        configNode["contact6DofNames"].as<std::vector<std::string>>(), verbose_);
@@ -387,9 +366,9 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
   mass_ = pinocchio::computeTotalMass(leggedModel_.model());
 
   numDecisionVars_ = leggedModel_.nDof() + 3 * leggedModel_.nContacts3Dof() + leggedModel_.nContacts6Dof()*6 + leggedModel_.nJoints();
-  qMeasured_ = vector_t(leggedModel_.nDof());
+  qMeasured_ = vector_t(leggedModel_.nqBase());
   vMeasured_ = vector_t(leggedModel_.nDof());
-  qDesired_ = vector_t(leggedModel_.nDof());
+  qDesired_ = vector_t(leggedModel_.nqBase());
   vDesired_ = vector_t(leggedModel_.nDof());
   vDesiredLast_ = vector_t(leggedModel_.nDof());
   fDesired_ = vector_t(leggedModel_.nContacts3Dof()*3 + leggedModel_.nContacts6Dof()*6);

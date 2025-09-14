@@ -10,6 +10,16 @@
 #include <pinocchio/multibody/data.hpp>
 #include <pinocchio/algorithm/center-of-mass.hpp>
 
+/**
+    * @brief LeggedModel 类，封装了 Pinocchio 模型的基本操作
+    * @note baseType_ = "quaternion" 时
+                q_pinocchio = [base_pos, base_quaternion(x y z w), q_joint]
+                v_pinocchio = [base_linearVel(base), base_angularVel(base), dq_joint]
+    * @note baseType_ = "eulerZYX" 时
+                q_pinocchio = [base_pos, base_eulerZYX, q_joint]
+                v_pinocchio = [base_linearVel(world), base_eulerZYX_dot, dq_joint]
+    * @note 使用 pinocchio::rpy 进行旋转变换，需注意 eulerZYX = [yaw pitch roll] = rpy.reverse()
+ */
 class LeggedModel {
 private:
     bool verbose_;

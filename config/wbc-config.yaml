@@ -29,17 +29,17 @@ baseAccelTask:
   baseAcc_kp:
     - 0.0       # p_base_x
     - 0.0       # p_base_y
-    - 9.0       # p_base_z
-    - 10.0       # yaw
-    - 10.0       # pitch
-    - 400.0       # roll
+    - 400.0       # p_base_z
+    - -400.0       # x
+    - 400.0       # y
+    - 400.0       # z
   baseAcc_kd:
     - 0.0      # vx
     - 0.0      # vy
-    - 3.0       # vz
-    - 1.0      # dyaw
-    - 1.0      # dpitch
-    - 20.0     # droll
+    - 20.0       # vz
+    - -20.0      # wx
+    - 20.0      # wy
+    - 20.0       # wz
 
 swingLegTask:
   kp: 350

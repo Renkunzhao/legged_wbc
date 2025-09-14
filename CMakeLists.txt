@@ -30,6 +30,7 @@ find_package(qpOASES REQUIRED)
 find_package(osqp REQUIRED)
 find_package(OsqpEigen REQUIRED)
 find_package(logger REQUIRED)
+find_package(manif REQUIRED)
 
 # include 目录
 include_directories(
@@ -68,6 +69,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
     ${EIGEN3_INCLUDE_DIRS}
+    ${manif_INCLUDE_DIRS}
     ${pinocchio_INCLUDE_DIRS}
     ${qpOASES_INCLUDE_DIR}
     /usr/local/include/osqp
@@ -98,6 +100,11 @@ install(EXPORT ${PROJECT_NAME}Targets
 ##############################
 # 4️⃣ 可执行文件（独立测试）
 ##############################
+
+add_executable(Rotation_test
+    test/Rotation_test.cpp
+)
+target_link_libraries(Rotation_test ${pinocchio_LIBRARIES})
 
 add_executable(LeggedState_test
     test/LeggedState_test.cpp
@@ -164,7 +171,7 @@ if(ament_cmake_FOUND)
     message("Found ament_cmake")
 
     # 安装可执行文件
-    install(TARGETS LeggedState_test LeggedModel_test WeightedWbc_test
+    install(TARGETS Rotation_test LeggedState_test LeggedModel_test WeightedWbc_test
         DESTINATION lib/${PROJECT_NAME}
     )
 
