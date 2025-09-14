@@ -250,17 +250,17 @@ Task WbcBase::formulateBaseAccelTaskPD(scalar_t period) {
   // https://github.com/stack-of-tasks/pinocchio/issues/16 pinocchio store quat in [x,y,w,z]
   Eigen::Vector4d quat_des = quat_wxyz(qDesired_.segment(3,4));
   Eigen::Vector4d quat = quat_wxyz(qMeasured_.segment(3,4));
-  pos_error << qDesired_.head(3) - qMeasured_.head(3),
+  Eigen::Matrix3d R_des = quat_ToR(quat_des);
+  Eigen::Matrix3d R = quat_ToR(quat);
+  pos_error << R.transpose() * (qDesired_.head(3) - qMeasured_.head(3)),
                 quat_boxminusL(quat_des, quat);
 
   // Representation-Free Model Predictive Control for Dynamic Motions in Quadrupeds (https://arxiv.org/pdf/2012.10002 p5 equ-29,30) 
   Eigen::Vector3d w_des = vDesired_.segment(3,3);
   Eigen::Vector3d w = vMeasured_.segment(3,3);
-  Eigen::Matrix3d R_des = quat_ToR(quat_des);
-  Eigen::Matrix3d R = quat_ToR(quat);
+
   vel_error << vDesired_.head(3) - vMeasured_.head(3),
                R.transpose()*R_des*w_des - w; 
-  
   b = baseAccelKp_.asDiagonal() * pos_error + baseAccelKd_.asDiagonal() * vel_error;
 
   if(verbose_) {
