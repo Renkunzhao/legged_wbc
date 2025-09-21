@@ -1,6 +1,7 @@
 #ifndef LEGGEDSTATE_H
 #define LEGGEDSTATE_H
 
+#include <cstddef>
 #include <string>
 #include <vector>
 #include <map>
@@ -17,6 +18,9 @@
  * - [ ]
  * - [ ]
  */
+
+using namespace std;
+using namespace Eigen;
 
 class LeggedState {
 private:
@@ -45,6 +49,12 @@ private:
     Eigen::VectorXd joint_pos_;
     Eigen::VectorXd joint_vel_;
 
+    // contact force
+    vector<string> ee3Dof_names_;
+    vector<string> ee6Dof_names_;
+    VectorXd ee3Dof_fc_;
+    VectorXd ee6Dof_fc_;
+
     Eigen::VectorXd rbd_state_;
 
     // 内部调用， 自动更新rbd_state
@@ -54,6 +64,8 @@ private:
         std::vector<std::string> elements;
         Eigen::VectorXd state_vec;
         std::vector<std::string> joint_order;
+        std::vector<std::string> ee3Dof_order;
+        std::vector<std::string> ee6Dof_order;
     };
 
     std::map<std::string, CustomState> custom_states_;
@@ -95,8 +107,8 @@ public:
      * @param num_joints 机器人关节数
      */
     LeggedState() = default;
-    LeggedState(int num_joints, std::vector<std::string> joint_names) {init(num_joints, joint_names);}
-    void init(int num_joints, std::vector<std::string> joint_names);
+    LeggedState(int num_joints, std::vector<std::string> joint_names, vector<string> ee3Dof_names = {}, vector<string> ee6Dof_names = {}) {init(num_joints, joint_names, ee3Dof_names, ee6Dof_names);}
+    void init(int num_joints, std::vector<std::string> joint_names, vector<string> ee3Dof_names = {}, vector<string> ee6Dof_names = {});
 
     /**
      * @brief 创建自定义状态。
@@ -112,9 +124,14 @@ public:
      *           "base_ang_vel_B",
      *           "base_eulerZYX_dot",
      *           "joint_pos",
-     *           "joint_vel"}
+     *           "joint_vel",
+     *           "ee3Dof_fc",
+     *           "ee6Dof_fc"}
      */
-    void createCustomState(const std::string& state_name, const std::vector<std::string>& state_elements, std::vector<std::string> joint_order = {}) {
+    void createCustomState(const std::string& state_name, const std::vector<std::string>& state_elements, 
+                            std::vector<std::string> joint_order = {},
+                            vector<string> ee3Dof_order = {},
+                            vector<string> ee6Dof_order = {}) {
         if (custom_states_.count(state_name)) {
             throw std::runtime_error("Custom state already exists: " + state_name);
         }
@@ -123,6 +140,8 @@ public:
         state.elements = state_elements;
         state.state_vec.resize(getCustomeStateSize(state_elements));
         state.joint_order = joint_order;    
+        state.ee3Dof_order = ee3Dof_order;
+        state.ee6Dof_order = ee6Dof_order;
         custom_states_[state_name] = std::move(state);
     }
 
@@ -211,6 +230,9 @@ public:
      */
     void setJointVel(const Eigen::VectorXd& joint_vel, const std::vector<std::string>& joint_order = {});
     
+    void setEE3DofFc(const VectorXd& ee3Dof_fc, const vector<string>& ee3Dof_order = {});
+    void setEE6DofFc(const VectorXd& ee6Dof_fc, const vector<string>& ee6Dof_order = {});
+
     // 完整状态更新
     /**
      * @brief 根据RBD状态向量更新所有主状态变量。
@@ -238,8 +260,12 @@ public:
     const Eigen::Vector3d& base_eulerZYX_dot() const { return base_eulerZYX_dot_; }
     const Eigen::VectorXd& joint_pos() const { return joint_pos_; }
     const Eigen::VectorXd& joint_vel() const { return joint_vel_; }
+    const Eigen::VectorXd& ee3Dof_fc() const { return ee3Dof_fc_; }
+    const Eigen::VectorXd& ee6Dof_fc() const { return ee6Dof_fc_; }
 
     const std::vector<std::string>& joint_names() const {return joint_names_;}
+    const std::vector<std::string>& ee3Dof_names() const {return ee3Dof_names_;}
+    const std::vector<std::string>& ee6Dof_names() const {return ee6Dof_names_;}
 
     int getRbdStateSize() const { return 2*(num_joints_+6); }
     const Eigen::VectorXd& rbd_state() { updateRbdState(); return rbd_state_; }
@@ -248,33 +274,54 @@ public:
     const std::vector<std::string>& getCustomeJointOrder(const std::string& state_name) {
       return custom_states_.at(state_name).joint_order;
     }
+    const std::vector<std::string>& getCustomeEE3DofOrder(const std::string& state_name) {
+      return custom_states_.at(state_name).ee3Dof_order;
+    }
+    const std::vector<std::string>& getCustomeEE6DofOrder(const std::string& state_name) {
+      return custom_states_.at(state_name).ee6Dof_order;
+    }
     const Eigen::VectorXd& custom_state(const std::string& state_name) { 
       updateCustomState(); 
       return custom_states_.at(state_name).state_vec; 
     }
 
-    static void reorderJoints(const Eigen::VectorXd& input,
-                    const std::vector<std::string>& input_order,
-                    const std::vector<std::string>& target_order,
-                    Eigen::VectorXd& output) 
-    {
-        if (input.size() != (int)input_order.size() ||
-            input_order.size() != target_order.size()) {
-            throw std::runtime_error("[LeggedState] joint vector or order size mismatch.");
+    // 输入：
+    //   vec_in     - 输入向量 (dim * n)
+    //   names_in   - 输入的名称 (size = n)
+    //   names_out  - 目标名称顺序 (size = n)
+    // 输出：
+    //   vec_out    - 输出向量 (dim * n)
+    static void reorder(
+                const std::vector<std::string> &names_in,
+                const Eigen::VectorXd &vec_in,
+                const std::vector<std::string> &names_out,
+                Eigen::VectorXd &vec_out
+            ) {
+        int n_in = names_in.size();
+        int n_out = names_out.size();
+        if (n_in != n_out)
+            throw std::invalid_argument("names_in and names_out must have same length");
+
+        if (vec_in.size() % n_in != 0)
+            throw std::invalid_argument("vec_in size must be divisible by names_in.size()");
+
+        int dim = vec_in.size() / n_in;
+        vec_out.resize(vec_in.size());
+
+        // 建立名字 -> 索引映射
+        std::unordered_map<std::string, int> name_to_idx;
+        for (int i = 0; i < n_in; ++i) {
+            name_to_idx[names_in[i]] = i;
         }
 
-        std::map<std::string, int> order_map;
-        for (size_t i = 0; i < input_order.size(); ++i) {
-            order_map[input_order[i]] = i;
-        }
+        // 重排
+        for (int i = 0; i < n_out; ++i) {
+            auto it = name_to_idx.find(names_out[i]);
+            if (it == name_to_idx.end())
+                throw std::invalid_argument("Name " + names_out[i] + " not found in names_in");
 
-        output.resize(target_order.size());
-        for (size_t i = 0; i < target_order.size(); ++i) {
-            auto it = order_map.find(target_order[i]);
-            if (it == order_map.end()) {
-                throw std::runtime_error("[LeggedState] joint name " + target_order[i] + " not found in input_order.");
-            }
-            output[i] = input[it->second];
+            int src_idx = it->second;
+            vec_out.segment(i * dim, dim) = vec_in.segment(src_idx * dim, dim);
         }
     }
 };

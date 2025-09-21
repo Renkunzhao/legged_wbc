@@ -35,6 +35,13 @@ class Task {
             f_.cols() > 0 ? rhs * f_ : f_};  // clang-format on
   }
 
+  Task operator*(vector_t rhs) const {  // clang-format off
+    return {a_.size() > 0 ? rhs.asDiagonal() * a_ : a_,
+            b_.size() > 0 ? rhs.asDiagonal() * b_ : b_,
+            d_.size() > 0 ? rhs.asDiagonal() * d_ : d_,
+            f_.size() > 0 ? rhs.asDiagonal() * f_ : f_};  // clang-format on
+  }
+
   matrix_t a_, d_;
   vector_t b_, f_;
 

@@ -1,4 +1,5 @@
 #include "legged_wbc/LeggedModel.h"
+#include "legged_wbc/Math.h"
 #include "legged_wbc/Lie.h"
 #include <cstddef>
 #include <pinocchio/parsers/urdf.hpp>
@@ -118,6 +119,20 @@ std::vector<Eigen::Vector3d> LeggedModel::contact6DofVels(const Eigen::VectorXd&
     return contact6DofVels;
 }
 
+
+Eigen::MatrixXd LeggedModel::jacobian3Dof(Eigen::VectorXd q_pin){
+    pinocchio::forwardKinematics(model_, data_, q_pin);
+    pinocchio::computeJointJacobians(model_, data_);
+    Eigen::MatrixXd jac(3*nContacts3Dof_, model_.nv);
+    for (size_t i = 0; i < nContacts3Dof_; ++i) {
+        Eigen::MatrixXd jac_temp(6, model_.nv);
+        jac_temp.setZero();
+        pinocchio::getFrameJacobian(model_, data_, contact3DofIds_[i], pinocchio::LOCAL_WORLD_ALIGNED, jac_temp);
+        jac.block(3*i, 0, 3, model_.nv) = jac_temp.topRows<3>();
+    }
+    return jac;
+}
+
 Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::vector<Eigen::Vector3d>& contact3DofPoss){
     if (qBase.size() != nqBase_) {
         throw std::runtime_error("Base pose vector size does not match nqBase_");
@@ -149,10 +164,7 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::v
     // err = [err_foot_1^T, err_foot_2^T, ...]^T
     Eigen::VectorXd err = Eigen::VectorXd::Zero(nContacts3Dof_*3);
     Eigen::VectorXd dqj = Eigen::VectorXd::Zero(model_.nv-6);
-    Eigen::MatrixXd J = Eigen::MatrixXd::Zero(nContacts3Dof_*3, model_.nv-6);
-    Eigen::MatrixXd Jt = Eigen::MatrixXd::Zero(model_.nv-6, nContacts3Dof_*3);
-    Eigen::MatrixXd JJt = Eigen::MatrixXd::Zero(nContacts3Dof_*3, nContacts3Dof_*3);
-    Eigen::MatrixXd JJt_damped = Eigen::MatrixXd::Zero(nContacts3Dof_*3, nContacts3Dof_*3);
+    Eigen::MatrixXd Jj = Eigen::MatrixXd::Zero(nContacts3Dof_*3, model_.nv-6);
     for (int i = 0; i < max_iters; i++) {
         pinocchio::forwardKinematics(model_, data_, q);
         pinocchio::updateFramePlacements(model_, data_);
@@ -168,17 +180,8 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::v
             return q;
         }
         
-        for (size_t i = 0; i < contact3DofIds_.size(); i++) {
-            Eigen::MatrixXd Jac(6, model_.nv);
-            Jac.setZero();
-            pinocchio::computeFrameJacobian(model_, data_, q, contact3DofIds_[i], pinocchio::LOCAL_WORLD_ALIGNED, Jac);
-            J.block(3*i, 0, 3, J.cols()) = Jac.block(0, 6, 3, model_.nv-6);
-        }
-
-        Jt = J.transpose();
-        JJt = J * Jt;
-        JJt_damped = JJt + damping * Eigen::MatrixXd::Identity(JJt.rows(), JJt.cols());
-        dqj = Jt * (JJt_damped.ldlt().solve(err));
+        Jj = jacobian3Dof(q).rightCols(nJoints_);
+        dqj = pseudoInverseDLS(Jj)*err;
         
         q.tail(dqj.size()) += dqj * dt;
 
@@ -189,3 +192,20 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::v
         }
     }
 }
+
+// \dot{q}_j = J_j^+(v - J_b \dot{q}_b)
+Eigen::VectorXd LeggedModel::inverseDiffKine3Dof(Eigen::VectorXd q_pin, Eigen::VectorXd vBase, const std::vector<Eigen::Vector3d>& contact3DofVels){
+    Eigen::VectorXd desEEvel(nContacts3Dof_ * 3);
+    for (size_t i = 0; i < contact3DofVels.size(); i++) {
+        desEEvel.segment(3*i, 3) = contact3DofVels[i];
+    }
+
+    auto J = jacobian3Dof(q_pin);
+    auto Jb = J.leftCols(6);
+    auto Jj = J.rightCols(nJoints_);
+
+    Eigen::VectorXd v_pin(model_.nv);
+    v_pin << vBase, pseudoInverseDLS(Jj)*(desEEvel - Jb*vBase);
+    return v_pin;
+}
+

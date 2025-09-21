@@ -13,7 +13,6 @@
 
 #include <iostream>
 #include <vector>
-#include <yaml-cpp/yaml.h>
 
 #include <pinocchio/algorithm/centroidal.hpp>
 #include <pinocchio/algorithm/center-of-mass.hpp>
@@ -58,12 +57,7 @@ void WbcBase::updateMeasured() {
   // EOM Task & SwingLegTask & NoContactMotionTask
   pinocchio::computeJointJacobians(model, data);
   jMeasured_ = matrix_t(3 * leggedModel_.nContacts3Dof(), leggedModel_.nDof());
-  for (size_t i = 0; i < leggedModel_.nContacts3Dof(); ++i) {
-    Eigen::Matrix<scalar_t, 6, Eigen::Dynamic> jac;
-    jac.setZero(6, leggedModel_.nDof());
-    pinocchio::getFrameJacobian(model, data, leggedModel_.contact3DofIds()[i], pinocchio::LOCAL_WORLD_ALIGNED, jac);
-    jMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) = jac.template topRows<3>();
-  }
+  jMeasured_ = leggedModel_.jacobian3Dof(qMeasured_);
 
   // SwingLegTask & NoContactMotionTask
   pinocchio::computeJointJacobiansTimeVariation(model, data, qMeasured_, vMeasured_);
@@ -75,11 +69,23 @@ void WbcBase::updateMeasured() {
     djMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) = jac.template topRows<3>();
   }
 
+  // ComAccTask
+  pinocchio::computeCentroidalMomentum(model, data, qMeasured_, vMeasured_);
+  hMeasured_ = data.hg.toVector();
+
+  AMeasured_ = matrix_t(6, leggedModel_.nDof());
+  dAMeasured_ = matrix_t(6, leggedModel_.nDof());
+  pinocchio::dccrba(model, data, qMeasured_, vMeasured_);
+  AMeasured_ = data.Ag;
+  dAMeasured_ = data.dAg;
+
   if(verbose_) {
     std::cout << "[WbcBase] MMeasured:\n" << MMeasured_ << std::endl;
     std::cout << "[WbcBase] nleMeasured:" << nleMeasured_.transpose() << std::endl;
     std::cout << "[WbcBase] jMeasured:\n" << jMeasured_ << std::endl;
     std::cout << "[WbcBase] djMeasured:\n" << djMeasured_ << std::endl;
+    // std::cout << "[WbcBase] data.Ag: rows = " << data.Ag.rows() << " cols = " << data.Ag.cols() << std::endl;
+    // std::cout << "[WbcBase] data.dAg: rows = " << data.dAg.rows() << " cols = " << data.dAg.cols() << std::endl;
   }
 }
 
@@ -93,6 +99,8 @@ void WbcBase::updateDesired() {
   dADesired_ = matrix_t(6, leggedModel_.nDof());
   ADesired_ = pinocchio::computeCentroidalMap(model, data, qDesired_);
   dADesired_ = pinocchio::dccrba(model, data, qDesired_, vDesired_);
+
+  hDesired_.setZero();
 
   if(verbose_) {
     std::cout << "[WbcBase] ADesired:\n" << ADesired_ << std::endl;
@@ -237,7 +245,7 @@ Task WbcBase::formulateBaseAccelTask(scalar_t period) {
   return {a, b, matrix_t(), vector_t()};
 }
 
-Task WbcBase::formulateBaseAccelTaskPD(scalar_t period) {
+Task WbcBase::formulateBaseAccelTaskPD() {
   matrix_t a(6, numDecisionVars_);
   a.setZero();
   a.block(0, 0, 6, 6) = matrix_t::Identity(6, 6);
@@ -272,6 +280,25 @@ Task WbcBase::formulateBaseAccelTaskPD(scalar_t period) {
       
   baseAccTask_ = Task(a, b, matrix_t(), vector_t());
   return baseAccTask_;
+}
+
+Task WbcBase::formulateComAccelTask() {
+  matrix_t a(6, numDecisionVars_);
+  a.setZero();
+  a.block(0, 0, 6, leggedModel_.nDof()) = AMeasured_;
+
+  Vector6 b;
+  b = comAccelKp_.asDiagonal()*(hDesired_ - hMeasured_) - dAMeasured_*vMeasured_;
+
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] ComAccelTaskPD " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+  }
+
+  comAccTask_ = Task(a, b, matrix_t(), vector_t());
+  return comAccTask_;
 }
 
 Task WbcBase::formulateSwingLegTask() {
@@ -343,15 +370,6 @@ Task WbcBase::formulateJointTorqueTask() {
   return jointTorqueTask_;
 }
 
-// 将 YAML list 转换为 Eigen::VectorXd
-inline Eigen::VectorXd yamlToEigenVector(const YAML::Node& node) {
-    if (!node || !node.IsSequence()) {
-        throw std::runtime_error("YAML node is not a valid sequence.");
-    }
-    std::vector<double> vec = node.as<std::vector<double>>();
-    return Eigen::Map<Eigen::VectorXd>(vec.data(), vec.size());
-}
-
 void WbcBase::loadTasksSetting(const std::string& configFile) {
   std::cout << "[WbcBase] Load config from " << configFile << std::endl;
   YAML::Node configNode = YAML::LoadFile(configFile);
@@ -375,6 +393,8 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
 
   baseAccelKp_ = yamlToEigenVector(configNode["baseAccelTask"]["baseAcc_kp"]);
   baseAccelKd_ = yamlToEigenVector(configNode["baseAccelTask"]["baseAcc_kd"]);
+  comAccelKp_ = yamlToEigenVector(configNode["comAccelTask"]["comAcc_kp"]);
+  comAccelKd_ = yamlToEigenVector(configNode["comAccelTask"]["comAcc_kd"]);
   swingKp_ = configNode["swingLegTask"]["kp"].as<double>();
   swingKd_ = configNode["swingLegTask"]["kd"].as<double>();
   torqueLimits_ = yamlToEigenVector(configNode["torqueLimitsTask"]);
@@ -392,6 +412,8 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
 
     std::cout << "[WbcBase] baseAccelKp: " << baseAccelKp_.transpose() << std::endl;
     std::cout << "[WbcBase] baseAccelKd: " << baseAccelKd_.transpose() << std::endl;
+    std::cout << "[WbcBase] comAccelKp: " << comAccelKp_.transpose() << std::endl;
+    std::cout << "[WbcBase] comAccelKd: " << comAccelKd_.transpose() << std::endl;
     std::cout << "[WbcBase] swingKp: " << swingKp_ << std::endl;
     std::cout << "[WbcBase] swingKd: " << swingKd_ << std::endl;
     std::cout << "[WbcBase] torqueLimits: " << torqueLimits_.transpose() << std::endl;

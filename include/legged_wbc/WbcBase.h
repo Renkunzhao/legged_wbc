@@ -9,6 +9,8 @@
 #include "legged_wbc/Types.h"
 
 #include <array>
+#include <stdexcept>
+#include <yaml-cpp/yaml.h>
 
 namespace legged {
 
@@ -31,19 +33,23 @@ class WbcBase {
   size_t mass() const {return mass_;}
   LeggedModel& leggedModel() {return leggedModel_;}
 
-  void computeCost(const vector_t& x, vector_t& swingLegCost, vector_t& baseAccCost, vector_t& contactForceCost);
-
   double getJointKp() const {return jointKp_;}
   double getJointKd() const {return jointKd_;}
-  const Task& getSwingLegTask() const {return swingLegTask_;}
-  const Task& getBaseAccTask() const {return baseAccTask_;}
-  const Task& getContactForceTask() const {return contactForceTask_;}
 
  protected:
   double inline computeCost(Task task, vector_t x, double weight = 1){
-    vector_t y = task.a_ * x - task.b_;
-    return 0.5 * weight * weight * (y.squaredNorm() - task.b_.squaredNorm());
+    vector_t y =  (task.a_ * x - task.b_);
+    return 0.5 * weight*weight * (y.squaredNorm() - task.b_.squaredNorm());
   }
+  double inline computeCost(Task task, vector_t x, vector_t weight){
+    if (task.a_.rows()!=weight.size()) {
+      throw runtime_error("[WbcBase] computeCost task and weight dimension mismatch.");
+    }
+    vector_t y = weight.asDiagonal() * (task.a_ * x - task.b_);
+    vector_t b = weight.asDiagonal() * task.b_;
+    return 0.5 * (y.squaredNorm() - b.squaredNorm());
+  }
+
 
   void updateMeasured();
   void updateDesired();
@@ -55,7 +61,8 @@ class WbcBase {
   Task formulateNoContactMotionTask();
   Task formulateFrictionConeTask();
   Task formulateBaseAccelTask(scalar_t period);
-  Task formulateBaseAccelTaskPD(scalar_t period);
+  Task formulateBaseAccelTaskPD();
+  Task formulateComAccelTask();
   Task formulateSwingLegTask();
   Task formulateContactForceTask();
   Task formulateJointTorqueTask();
@@ -69,16 +76,28 @@ class WbcBase {
   std::array<bool, 4> contactFlag_;
   matrix_t MMeasured_, nleMeasured_, jMeasured_, djMeasured_;
   Eigen::Vector3d comDesired_;
-  matrix_t ADesired_, dADesired_;
+  Vector6 hMeasured_, hDesired_;
+  matrix_t AMeasured_, dAMeasured_, ADesired_, dADesired_;
+
+  // 将 YAML list 转换为 Eigen::VectorXd
+  inline Eigen::VectorXd yamlToEigenVector(const YAML::Node& node) {
+      if (!node || !node.IsSequence()) {
+          throw std::runtime_error("YAML node is not a valid sequence.");
+      }
+      std::vector<double> vec = node.as<std::vector<double>>();
+      return Eigen::Map<Eigen::VectorXd>(vec.data(), vec.size());
+  }
 
   // Task Parameters:
   bool verbose_;
-  vector_t torqueLimits_ = vector_t::Zero(3), baseAccelKp_ = vector_t::Zero(6), baseAccelKd_ = vector_t::Zero(6);
+  vector_t torqueLimits_ = vector_t::Zero(3);
+  vector_t baseAccelKp_ = vector_t::Zero(6), baseAccelKd_ = vector_t::Zero(6);
+  vector_t comAccelKp_ = vector_t::Zero(6), comAccelKd_ = vector_t::Zero(6);
   scalar_t frictionCoeff_{}, swingKp_{}, swingKd_{};
   scalar_t jointKp_, jointKd_;
 
   // Task
-  Task swingLegTask_, baseAccTask_, contactForceTask_, jointTorqueTask_;
+  Task swingLegTask_, baseAccTask_, comAccTask_, contactForceTask_, jointTorqueTask_;
 };
 
 }  // namespace legged

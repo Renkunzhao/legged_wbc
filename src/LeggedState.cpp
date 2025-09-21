@@ -23,6 +23,8 @@ std::map<std::string, Eigen::VectorXd> LeggedState::getStateMap() const {
     state_map["base_eulerZYX_dot"] = base_eulerZYX_dot_;
     state_map["joint_pos"] = joint_pos_;
     state_map["joint_vel"] = joint_vel_;
+    state_map["ee3Dof_fc"] = ee3Dof_fc_;
+    state_map["ee6Dof_fc"] = ee6Dof_fc_;
 
     return state_map;
 }
@@ -39,9 +41,16 @@ void LeggedState::updateCustomState() {
             const Eigen::VectorXd& vec = state_map.at(elem_name);
             if (!custom_state.joint_order.empty() &&
                 (elem_name == "joint_pos" || elem_name == "joint_vel")) {
-                // 需要重排
                 Eigen::VectorXd reordered;
-                reorderJoints(vec, joint_names_, custom_state.joint_order, reordered);
+                reorder(joint_names_, vec, custom_state.joint_order, reordered);
+                custom_state.state_vec.segment(pos, reordered.size()) = reordered;
+            } else if (!custom_state.ee3Dof_order.empty() && elem_name == "ee3Dof_fc") {
+                Eigen::VectorXd reordered;
+                reorder(ee3Dof_names_, vec, custom_state.ee3Dof_order, reordered);
+                custom_state.state_vec.segment(pos, reordered.size()) = reordered;
+            } else if (!custom_state.ee6Dof_order.empty() && elem_name == "ee6Dof_fc") {
+                Eigen::VectorXd reordered;
+                reorder(ee6Dof_names_, vec, custom_state.ee6Dof_order, reordered);
                 custom_state.state_vec.segment(pos, reordered.size()) = reordered;
             } else { 
                 custom_state.state_vec.segment(pos, vec.size()) = vec;
@@ -78,7 +87,7 @@ Eigen::Vector3d LeggedState::AngularVelocityW2eulerZYX(Eigen::Vector3d eulerZYX,
 // public
 // --- 构造函数实现 ---
 // 构造函数：仅作为数据容器
-void LeggedState::init(int num_joints, std::vector<std::string> joint_names) {
+void LeggedState::init(int num_joints, std::vector<std::string> joint_names, vector<string> ee3Dof_names, vector<string> ee6Dof_names) {
     if (joint_names.size()!=num_joints) {
         throw std::runtime_error("[LeggedState] num_joints and size of joint_names didn't match.");
     }
@@ -99,6 +108,11 @@ void LeggedState::init(int num_joints, std::vector<std::string> joint_names) {
     joint_names_ = joint_names;
     joint_pos_.resize(num_joints_);
     joint_vel_.resize(num_joints_);
+
+    ee3Dof_names_ = ee3Dof_names;
+    ee6Dof_names_ = ee6Dof_names;
+    ee3Dof_fc_.resize(ee3Dof_names_.size()*3);
+    ee6Dof_fc_.resize(ee6Dof_names.size()*6);
 
     rbd_state_.resize(getRbdStateSize());
 }
@@ -125,6 +139,9 @@ void LeggedState::log(std::string prefix){
     logger.update(prefix+"base_eulerZYX_dot", static_cast<Eigen::VectorXd>(base_eulerZYX_dot_));
     logger.update(prefix+"joint_pos", joint_pos_);
     logger.update(prefix+"joint_vel", joint_vel_);
+    logger.update(prefix+"ee3Dof_fc", ee3Dof_fc_);
+    logger.update(prefix+"ee6Dof_fc", ee6Dof_fc_);
+
 
     // base_R 展平为 9 维向量
     logger.update(prefix+"base_R", static_cast<Eigen::MatrixXd>(base_R_));
@@ -218,7 +235,7 @@ void LeggedState::setJointPos(const Eigen::VectorXd& joint_pos, const std::vecto
         }
         joint_pos_ = joint_pos; 
     } else {
-        reorderJoints(joint_pos, joint_order, joint_names_, joint_pos_);
+        reorder(joint_order, joint_pos, joint_names_, joint_pos_);
     }
 }
 
@@ -229,8 +246,30 @@ void LeggedState::setJointVel(const Eigen::VectorXd& joint_vel, const std::vecto
         }
         joint_vel_ = joint_vel;
     } else {
-        reorderJoints(joint_vel, joint_order, joint_names_, joint_vel_);
+        reorder(joint_order, joint_vel, joint_names_, joint_vel_);
     }
+}
+
+void LeggedState::setEE3DofFc(const VectorXd& ee3Dof_fc, const vector<string>& ee3Dof_order) {
+    if (ee3Dof_order.empty()) {
+        if (ee3Dof_fc.size() != ee3Dof_fc_.size()) {
+            throw std::runtime_error("[LeggedState] ee3Dof_fc size mismatch.");
+        }
+        ee3Dof_fc_ = ee3Dof_fc;
+    } else {
+        reorder(ee3Dof_order, ee3Dof_fc, ee3Dof_names_, ee3Dof_fc_);
+    } 
+}
+
+void LeggedState::setEE6DofFc(const VectorXd& ee6Dof_fc, const vector<string>& ee6Dof_order) {
+    if (ee6Dof_order.empty()) {
+        if (ee6Dof_fc.size() != ee6Dof_fc_.size()) {
+            throw std::runtime_error("[LeggedState] ee3Dof_fc size mismatch.");
+        }
+        ee6Dof_fc_ = ee6Dof_fc;
+    } else {
+        reorder(ee6Dof_order, ee6Dof_fc, ee6Dof_names_, ee6Dof_fc_);
+    } 
 }
 
 // --- 完整更新方法实现 ---
@@ -310,6 +349,10 @@ void LeggedState::setFromCustomState(const std::string& state_name, const Eigen:
             setJointPos(segment, custom_state.joint_order);
         } else if (elem_name == "joint_vel") {
             setJointVel(segment, custom_state.joint_order);
+        } else if (elem_name == "ee3Dof_fc") {
+            setEE3DofFc(segment, custom_state.ee3Dof_order);
+        } else if (elem_name == "ee6Dof_fc") {
+            setEE6DofFc(segment, custom_state.ee6Dof_order);
         } else {
             throw std::runtime_error("Unknown element: " + elem_name);
         }

@@ -162,7 +162,7 @@ Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
     return formulateSwingLegTask() * weightSwingLeg_ + formulateBaseAccelTask(period) * weightBaseAccel_ +
           formulateContactForceTask() * weightContactForce_;
   } else if (method == "pd") {
-    return formulateSwingLegTask() * weightSwingLeg_ + formulateBaseAccelTaskPD(period) * weightBaseAccel_ +
+    return formulateSwingLegTask() * weightSwingLeg_ + formulateBaseAccelTaskPD()*weightBaseAccel_ + formulateComAccelTask()*weightComAccel_ +
       formulateContactForceTask() * weightContactForce_ + formulateJointTorqueTask() * weightJointTorque_;
   }
 }
@@ -174,14 +174,16 @@ void WeightedWbc::loadTasksSetting(const std::string& configFile) {
   YAML::Node configNode = YAML::LoadFile(configFile);
 
   qpSolver_ = configNode["qpSolver"].as<std::string>();
-  weightBaseAccel_ = configNode["weight"]["baseAccel"].as<double>();
+  weightBaseAccel_ = yamlToEigenVector(configNode["weight"]["baseAccel"]);
+  weightComAccel_ = yamlToEigenVector(configNode["weight"]["comAccel"]);
   weightContactForce_ = configNode["weight"]["contactForce"].as<double>();
   weightSwingLeg_ = configNode["weight"]["swingLeg"].as<double>();
   weightJointTorque_ = configNode["weight"]["jointTorque"].as<double>();
 
   if(true) {
     std::cout << "[WeightedWbc] qpSolver: " << qpSolver_ << std::endl;
-    std::cout << "[WeightedWbc] weightBaseAccel: " << weightBaseAccel_ << std::endl;
+    std::cout << "[WeightedWbc] weightBaseAccel: " << weightBaseAccel_.transpose() << std::endl;
+    std::cout << "[WeightedWbc] weightComAccel: " << weightComAccel_.transpose() << std::endl;
     std::cout << "[WeightedWbc] weightContactForce: " << weightContactForce_ << std::endl;
     std::cout << "[WeightedWbc] weightSwingLeg: " << weightSwingLeg_ << std::endl;
     std::cout << "[WeightedWbc] weightJointTorque: " << weightJointTorque_ << std::endl;
@@ -194,6 +196,7 @@ void WeightedWbc::log(const vector_t& x){
 
     logger.update("swingLegCost", computeCost(swingLegTask_, x, weightSwingLeg_));
     logger.update("baseAccCost", computeCost(baseAccTask_, x, weightBaseAccel_));
+    logger.update("comAccCost", computeCost(comAccTask_, x, weightComAccel_));
     logger.update("contactForceCost", computeCost(contactForceTask_, x, weightContactForce_));
     logger.update("jointTorqueCost", computeCost(jointTorqueTask_, x, weightJointTorque_));
 }

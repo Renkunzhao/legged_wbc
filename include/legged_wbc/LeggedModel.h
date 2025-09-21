@@ -70,8 +70,14 @@ public:
     const std::vector<size_t>& contact6DofIds() const {return  contact6DofIds_;}
     std::vector<Eigen::Vector3d> contact6DofPoss(const Eigen::VectorXd& q_pin);
     std::vector<Eigen::Vector3d> contact6DofVels(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin);
+    
+    /*
+        stack jacobian of all 3Dof contact point, 3*nContacts3Dof_, nDof
+    */
+    Eigen::MatrixXd jacobian3Dof(Eigen::VectorXd q_pin);
 
     Eigen::VectorXd inverseKine3Dof(Eigen::VectorXd qBase, const std::vector<Eigen::Vector3d>& contact3DofPoss);
+    Eigen::VectorXd inverseDiffKine3Dof(Eigen::VectorXd q_pin, Eigen::VectorXd vBase, const std::vector<Eigen::Vector3d>& contact3DofVels);
 
     void loadUrdf(std::string urdfPath, std::string baseType, std::string baseName, std::vector<std::string> contact3DofNames, std::vector<std::string> contact6DofNames, bool verbose = false);
 

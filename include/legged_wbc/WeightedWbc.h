@@ -2,6 +2,7 @@
 // Created by qiayuan on 22-12-23.
 //
 
+#include "legged_wbc/Types.h"
 #include "legged_wbc/WbcBase.h"
 #include <string>
 
@@ -25,7 +26,8 @@ class WeightedWbc : public WbcBase {
 
  private:
   std::string qpSolver_ = "qpOASES";
-  scalar_t weightSwingLeg_, weightBaseAccel_, weightContactForce_, weightJointTorque_;
+  Eigen::VectorXd weightBaseAccel_ = vector_t::Zero(6), weightComAccel_ = vector_t::Zero(6);
+  scalar_t weightSwingLeg_, weightContactForce_, weightJointTorque_;
 
   // --- solver backends 封装 ---
   vector_t solveWithQPOases(const Eigen::MatrixXd& H,

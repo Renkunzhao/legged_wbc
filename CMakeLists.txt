@@ -100,6 +100,11 @@ install(EXPORT ${PROJECT_NAME}Targets
 # 4️⃣ 可执行文件（独立测试）
 ##############################
 
+add_executable(Math_test
+    test/Math_test.cpp
+)
+target_link_libraries(Math_test)
+
 add_executable(Lie_test
     test/Lie_test.cpp
 )
@@ -161,7 +166,7 @@ if(ament_cmake_FOUND)
     message("Found ament_cmake")
 
     # 安装可执行文件
-    install(TARGETS Lie_test LeggedState_test LeggedModel_test WeightedWbc_test
+    install(TARGETS Math_test Lie_test LeggedState_test LeggedModel_test WeightedWbc_test
         DESTINATION lib/${PROJECT_NAME}
     )
 
