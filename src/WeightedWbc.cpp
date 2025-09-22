@@ -194,6 +194,10 @@ void WeightedWbc::log(const vector_t& x){
     WbcBase::log(x);
     CsvLogger& logger = CsvLogger::getInstance();
 
+    logger.update("wbc_ddotq", (Eigen::VectorXd)x.head(leggedModel_.nDof()));
+    logger.update("wbc_lambda", (Eigen::VectorXd)x.segment(leggedModel_.nDof(), 3*leggedModel_.nContacts3Dof()+leggedModel_.nContacts6Dof()*6 ));
+    logger.update("wbc_tau", (Eigen::VectorXd)x.tail(leggedModel_.nJoints()));
+
     logger.update("swingLegCost", computeCost(swingLegTask_, x, weightSwingLeg_));
     logger.update("baseAccCost", computeCost(baseAccTask_, x, weightBaseAccel_));
     logger.update("comAccCost", computeCost(comAccTask_, x, weightComAccel_));
