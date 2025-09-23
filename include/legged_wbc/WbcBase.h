@@ -75,7 +75,7 @@ class WbcBase {
   size_t numContacts_;
   std::array<bool, 4> contactFlag_;
   matrix_t MMeasured_, nleMeasured_, jMeasured_, djMeasured_;
-  Eigen::Vector3d comDesired_;
+  Eigen::Vector3d p_comMeasured_, v_comMeasured_, p_comDesired_;
   Vector6 hMeasured_, hDesired_;
   matrix_t AMeasured_, dAMeasured_, ADesired_, dADesired_;
 

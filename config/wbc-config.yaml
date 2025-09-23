@@ -27,35 +27,35 @@ contact6DofNames: []
 
 baseAccelTask:
   baseAcc_kp:
-    - 400.0       # p_base_x
-    - 400.0       # p_base_y
-    - 400.0       # p_base_z
-    - 400.0       # x
-    - 400.0       # y
-    - 400.0       # z
+    - 00.0       # p_base_x
+    - 00.0       # p_base_y
+    - 00.0       # p_base_z
+    - 1000.0       # x
+    - 1000.0       # y
+    - 1000.0       # z
   baseAcc_kd:
-    - 20.0      # vx
-    - 20.0      # vy
-    - 20.0      # vz
-    - 20.0      # wx
-    - 20.0      # wy
-    - 20.0      # wz
-
-comAccelTask:
-  comAcc_kp:
-    - 0.0        # p_base_x
-    - 0.0       # p_base_y
-    - 0.0       # p_base_z
-    - 0.0       # x
-    - 0.0       # y
-    - 0.0       # z
-  comAcc_kd:
-    - 0.0       # vx
+    - 0.0      # vx
     - 0.0      # vy
     - 0.0      # vz
     - 0.0      # wx
     - 0.0      # wy
     - 0.0      # wz
+
+comAccelTask:
+  comAcc_kp:
+    - 9.0        # p_base_x
+    - 9.0       # p_base_y
+    - 9.0       # p_base_z
+    - 0.0       # x
+    - 0.0       # y
+    - 0.0       # z
+  comAcc_kd:
+    - 3.0       # vx
+    - 3.0      # vy
+    - 3.0      # vz
+    - 3.0      # wx
+    - 3.0      # wy
+    - 3.0      # wz
 
 swingLegTask:
   kp: 350
@@ -74,20 +74,20 @@ qpSolver: osqp      # osqp qpOASES
 
 weight:
   baseAccel: 
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
+    - 1.1
+    - 1.1
+    - 1.1
+    - 1.1
+    - 1.1
+    - 1.1
   comAccel:  
-    - 0.0
-    - 0.0
-    - 0.0
-    - 0.0
-    - 0.0
-    - 0.0
-  contactForce: 0.01
+    - 0.1
+    - 0.1
+    - 0.1
+    - 0.1
+    - 0.1
+    - 0.1
+  contactForce: 0.025
   swingLeg: 0
   jointTorque: 0
 

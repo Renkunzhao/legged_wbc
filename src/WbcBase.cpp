@@ -71,6 +71,8 @@ void WbcBase::updateMeasured() {
 
   // ComAccTask
   pinocchio::computeCentroidalMomentum(model, data, qMeasured_, vMeasured_);
+  p_comMeasured_ = data.com[0];
+  v_comMeasured_ = data.vcom[0];
   hMeasured_ = data.hg.toVector();
 
   AMeasured_ = matrix_t(6, leggedModel_.nDof());
@@ -93,14 +95,12 @@ void WbcBase::updateDesired() {
   const auto& model = leggedModel_.model();
   auto& data = leggedModel_.data();
 
-  comDesired_ = pinocchio::centerOfMass(model, data, qDesired_);
+  p_comDesired_ = pinocchio::centerOfMass(model, data, qDesired_);
 
   ADesired_ = matrix_t(6, leggedModel_.nDof());
   dADesired_ = matrix_t(6, leggedModel_.nDof());
   ADesired_ = pinocchio::computeCentroidalMap(model, data, qDesired_);
   dADesired_ = pinocchio::dccrba(model, data, qDesired_, vDesired_);
-
-  hDesired_.setZero();
 
   if(verbose_) {
     std::cout << "[WbcBase] ADesired:\n" << ADesired_ << std::endl;
@@ -226,7 +226,7 @@ Task WbcBase::formulateBaseAccelTask(scalar_t period) {
   const auto Aj = ADesired_.rightCols(leggedModel_.nJoints());
 
   Vector6 centroidalMomentumRate = mass_ * getNormalizedCentroidalMomentumRate(mass_, 
-                                                                              comDesired_,
+                                                                              p_comDesired_,
                                                                               leggedModel_.contact3DofPoss(qDesired_),
                                                                               leggedModel_.contact6DofPoss(qDesired_),
                                                                               fDesired_);
@@ -249,9 +249,6 @@ Task WbcBase::formulateBaseAccelTaskPD() {
   matrix_t a(6, numDecisionVars_);
   a.setZero();
   a.block(0, 0, 6, 6) = matrix_t::Identity(6, 6);
-
-  vector_t jointAccel = (vDesired_ - vDesiredLast_).tail(leggedModel_.nJoints());
-  vDesiredLast_ = vDesired_;
 
   Vector6 pos_error, vel_error, accel, b; 
 
@@ -287,8 +284,21 @@ Task WbcBase::formulateComAccelTask() {
   a.setZero();
   a.block(0, 0, 6, leggedModel_.nDof()) = AMeasured_;
 
+  // Here, we assume that qDesired_.head(3) and vDesired_.head(3) represent desired com postion and velocity
+  // Because base linear velocity in vDesired is expressed in base frame, so R.transpose()*vDesired_.head(3) are desired com velocity in world frame
+  hDesired_.setZero();
+  Eigen::Vector4d quat = quat_wxyz(qMeasured_.segment(3,4));
+  Eigen::Matrix3d R = quat_ToR(quat);
+  Eigen::Vector3d a_com;
+  a_com = comAccelKp_.head(3).asDiagonal()*(qDesired_.head(3) - p_comMeasured_) 
+        + comAccelKd_.head(3).asDiagonal()*(R.transpose()*vDesired_.head(3) - v_comMeasured_);
+
+  Vector6 h_des;
+  h_des << mass_*a_com, 
+           comAccelKd_.tail(3).asDiagonal()*( - hMeasured_.tail(3));
+
   Vector6 b;
-  b = comAccelKp_.asDiagonal()*(hDesired_ - hMeasured_) - dAMeasured_*vMeasured_;
+  b = h_des - dAMeasured_*vMeasured_;
 
   if(verbose_) {
     std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
