@@ -9,6 +9,7 @@
 #include <pinocchio/multibody/model.hpp>
 #include <pinocchio/multibody/data.hpp>
 #include <pinocchio/algorithm/center-of-mass.hpp>
+#include <pinocchio/algorithm/centroidal.hpp>
 
 /**
     * @brief LeggedModel 类，封装了 Pinocchio 模型的基本操作
@@ -58,6 +59,14 @@ public:
     size_t nqBase() const {return  nqBase_;}
 
     Eigen::Vector3d com(const Eigen::VectorXd& q_pin) {return pinocchio::centerOfMass(model_, data_, q_pin);}
+    Eigen::Vector3d vcom(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin) {
+        pinocchio::centerOfMass(model_, data_, q_pin, v_pin);
+        return data_.vcom[0];
+    }
+    Eigen::VectorXd hcom(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin) {
+        pinocchio::computeCentroidalMomentum(model_, data_, q_pin, v_pin);
+        return data_.hg.toVector();
+    }
 
     size_t nContacts3Dof() const {return  nContacts3Dof_;}
     const std::vector<std::string>& contact3DofNames() const {return  contact3DofNames_;}
