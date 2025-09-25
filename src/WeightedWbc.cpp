@@ -52,10 +52,6 @@ vector_t WeightedWbc::update(const vector_t& qDesired, const vector_t& vDesired,
     qpSol = solveWithQPOases(H, g, A, lbA, ubA, /*maxWsr=*/20);
   }
 
-  // --- 日志 ---
-  CsvLogger& logger = CsvLogger::getInstance();
-  logger.update("qpSol", qpSol);
-
   return qpSol;
 }
 
