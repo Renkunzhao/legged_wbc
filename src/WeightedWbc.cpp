@@ -159,7 +159,8 @@ Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
           formulateContactForceTask() * weightContactForce_;
   } else if (method == "pd") {
     return formulateSwingLegTask() * weightSwingLeg_ + formulateBaseAccelTaskPD()*weightBaseAccel_ + formulateComAccelTask()*weightComAccel_ +
-      formulateContactForceTask() * weightContactForce_ + formulateJointTorqueTask() * weightJointTorque_;
+      formulateContactForceTask() * weightContactForce_ + formulateSumFzTask()*weightSumFz_ +  
+      formulateJointTorqueTask() * weightJointTorque_;
   }
 }
 
@@ -172,7 +173,11 @@ void WeightedWbc::loadTasksSetting(const std::string& configFile) {
   qpSolver_ = configNode["qpSolver"].as<std::string>();
   weightBaseAccel_ = yamlToEigenVector(configNode["weight"]["baseAccel"]);
   weightComAccel_ = yamlToEigenVector(configNode["weight"]["comAccel"]);
-  weightContactForce_ = configNode["weight"]["contactForce"].as<double>();
+  weightContactForce_ = vector_t::Zero(3*leggedModel_.nContacts3Dof());
+  for (size_t i=0; i<leggedModel_.nContacts3Dof(); ++i) {
+    weightContactForce_.segment(3*i,3) = yamlToEigenVector(configNode["weight"]["contactForce"]);
+  }
+  weightSumFz_ = configNode["weight"]["SumFz"].as<double>();
   weightSwingLeg_ = configNode["weight"]["swingLeg"].as<double>();
   weightJointTorque_ = configNode["weight"]["jointTorque"].as<double>();
 
@@ -180,7 +185,8 @@ void WeightedWbc::loadTasksSetting(const std::string& configFile) {
     std::cout << "[WeightedWbc] qpSolver: " << qpSolver_ << std::endl;
     std::cout << "[WeightedWbc] weightBaseAccel: " << weightBaseAccel_.transpose() << std::endl;
     std::cout << "[WeightedWbc] weightComAccel: " << weightComAccel_.transpose() << std::endl;
-    std::cout << "[WeightedWbc] weightContactForce: " << weightContactForce_ << std::endl;
+    std::cout << "[WeightedWbc] weightContactForce: " << weightContactForce_.transpose() << std::endl;
+    std::cout << "[WeightedWbc] weightSumFz: " << weightSumFz_ << std::endl;
     std::cout << "[WeightedWbc] weightSwingLeg: " << weightSwingLeg_ << std::endl;
     std::cout << "[WeightedWbc] weightJointTorque: " << weightJointTorque_ << std::endl;
   }
@@ -198,6 +204,7 @@ void WeightedWbc::log(const vector_t& x){
     logger.update("baseAccCost", computeCost(baseAccTask_, x, weightBaseAccel_));
     logger.update("comAccCost", computeCost(comAccTask_, x, weightComAccel_));
     logger.update("contactForceCost", computeCost(contactForceTask_, x, weightContactForce_));
+    logger.update("sumFzCost", computeCost(SumFzTask_, x, weightSumFz_));
     logger.update("jointTorqueCost", computeCost(jointTorqueTask_, x, weightJointTorque_));
 }
 

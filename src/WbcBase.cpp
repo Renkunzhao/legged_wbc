@@ -1,6 +1,7 @@
 //
 // Created by Kunzhao on 2025/8/31.
 //
+#include <cstddef>
 #include <pinocchio/fwd.hpp>  // forward declarations must be included first.
 
 #include "legged_wbc/Task.h"
@@ -343,6 +344,7 @@ Task WbcBase::formulateSwingLegTask() {
 }
 
 Task WbcBase::formulateContactForceTask() {
+  // [0 I 0]x = lambda
   matrix_t a(3 * leggedModel_.nContacts3Dof(), numDecisionVars_);
   vector_t b(a.rows());
   a.setZero();
@@ -362,6 +364,28 @@ Task WbcBase::formulateContactForceTask() {
   contactForceTask_ = Task(a, b, matrix_t(), vector_t());
   return contactForceTask_;
 }
+
+Task WbcBase::formulateSumFzTask(){
+  // [0 Sz 0]x = Fz
+  matrix_t a = matrix_t::Zero(1, numDecisionVars_);
+  vector_t b(a.rows());
+  matrix_t Sz(1, 3*leggedModel_.nContacts3Dof());
+  Sz << 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1;
+
+  a.block(0, leggedModel_.nDof(), 1, 3*leggedModel_.nContacts3Dof()) = Sz;
+  b = Sz*fDesired_;
+
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] SumFzTask " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+  }
+  
+  SumFzTask_ = Task(a, b, matrix_t(), vector_t());
+  return SumFzTask_;
+}
+
 
 Task WbcBase::formulateJointTorqueTask() {
   matrix_t a = matrix_t::Zero(leggedModel_.nJoints(), numDecisionVars_);

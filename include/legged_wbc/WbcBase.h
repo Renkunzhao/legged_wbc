@@ -65,6 +65,7 @@ class WbcBase {
   Task formulateComAccelTask();
   Task formulateSwingLegTask();
   Task formulateContactForceTask();
+  Task formulateSumFzTask();
   Task formulateJointTorqueTask();
 
   LeggedModel leggedModel_;
@@ -97,7 +98,7 @@ class WbcBase {
   scalar_t jointKp_, jointKd_;
 
   // Task
-  Task swingLegTask_, baseAccTask_, comAccTask_, contactForceTask_, jointTorqueTask_;
+  Task swingLegTask_, baseAccTask_, comAccTask_, contactForceTask_, SumFzTask_, jointTorqueTask_;
 };
 
 }  // namespace legged
