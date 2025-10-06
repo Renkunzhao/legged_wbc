@@ -106,15 +106,15 @@ void LeggedState::init(int num_joints, std::vector<std::string> joint_names, vec
     // 初始化关节向量大小
     num_joints_ = num_joints;
     joint_names_ = joint_names;
-    joint_pos_.resize(num_joints_);
-    joint_vel_.resize(num_joints_);
+    joint_pos_ = VectorXd::Zero(num_joints_);
+    joint_vel_ = VectorXd::Zero(num_joints_);
 
     ee3Dof_names_ = ee3Dof_names;
     ee6Dof_names_ = ee6Dof_names;
-    ee3Dof_fc_.resize(ee3Dof_names_.size()*3);
-    ee6Dof_fc_.resize(ee6Dof_names.size()*6);
+    ee3Dof_fc_ = VectorXd::Zero(ee3Dof_names_.size()*3);
+    ee6Dof_fc_ = VectorXd::Zero(ee6Dof_names.size()*6);
 
-    rbd_state_.resize(getRbdStateSize());
+    rbd_state_ = VectorXd::Zero(getRbdStateSize());
 }
 
 void LeggedState::clear(){
