@@ -11,6 +11,7 @@ using namespace Lie;
 void LeggedModel::loadUrdf(std::string urdfPath, std::string baseType, std::string baseName,
                            std::vector<std::string> contact3DofNames, 
                            std::vector<std::string> contact6DofNames, 
+                           std::vector<std::string> hipNames, 
                            bool verbose) {
     std::cout << "[LeggedModel] Load URDF from " << urdfPath << std::endl;
     baseType_ = baseType;
@@ -60,6 +61,9 @@ void LeggedModel::loadUrdf(std::string urdfPath, std::string baseType, std::stri
     contact6DofNames_ = contact6DofNames;
     nContacts6Dof_ = contact6DofNames_.size();
     for(const auto& ee6Dof_ : contact6DofNames_) contact6DofIds_.push_back(model_.getBodyId(ee6Dof_));
+
+    hipNames_ = hipNames;
+    for(const auto& hipName : hipNames_) hipIds_.push_back(model_.getJointId(hipName));
 
     // Translation bounds
     model_.lowerPositionLimit.head<3>().setConstant(-10.0);  // x, y, z
@@ -133,10 +137,23 @@ Eigen::MatrixXd LeggedModel::jacobian3Dof(Eigen::VectorXd q_pin){
     return jac;
 }
 
-Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::vector<Eigen::Vector3d>& contact3DofPoss){
+Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, std::vector<Eigen::Vector3d> contact3DofPoss){
     if (qBase.size() != nqBase_) {
         throw std::runtime_error("Base pose vector size does not match nqBase_");
     }
+    
+    if (contact3DofPoss.empty()) {
+        Eigen::VectorXd q_pin = Eigen::VectorXd::Zero(model_.nq);
+        q_pin.head(nqBase_) = qBase;
+        pinocchio::forwardKinematics(model_, data_, q_pin);
+        for (size_t i = 0; i < contact3DofNames_.size(); ++i) {
+            Eigen::Vector3d hip_world = data_.oMi[hipIds_[i]].translation();
+            contact3DofPoss.push_back(Eigen::Vector3d(hip_world.x(), hip_world.y(), 0));
+        }
+        if (verbose_)
+            std::cout << "[LeggedModel] Auto-generated default foot targets from hip projections." << std::endl;
+    }
+
     if (contact3DofPoss.size() != contact3DofNames_.size()) {
         throw std::runtime_error("Mismatch in number of target positions and foot names");
     }
@@ -194,8 +211,15 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, const std::v
 }
 
 // \dot{q}_j = J_j^+(v - J_b \dot{q}_b)
-Eigen::VectorXd LeggedModel::inverseDiffKine3Dof(Eigen::VectorXd q_pin, Eigen::VectorXd vBase, const std::vector<Eigen::Vector3d>& contact3DofVels){
+Eigen::VectorXd LeggedModel::inverseDiffKine3Dof(Eigen::VectorXd q_pin, Eigen::VectorXd vBase, std::vector<Eigen::Vector3d> contact3DofVels){
     Eigen::VectorXd desEEvel(nContacts3Dof_ * 3);
+
+    if (contact3DofVels.empty()) {
+        for (size_t i = 0; i < contact3DofNames_.size(); ++i) {
+            contact3DofVels.push_back(Eigen::Vector3d::Zero());
+        }
+    }
+
     for (size_t i = 0; i < contact3DofVels.size(); i++) {
         desEEvel.segment(3*i, 3) = contact3DofVels[i];
     }

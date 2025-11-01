@@ -19,6 +19,7 @@ int main(int argc, char **argv)
                         configNode["baseName"].as<std::string>(), 
                         configNode["contact3DofNames"].as<std::vector<std::string>>(), 
                         configNode["contact6DofNames"].as<std::vector<std::string>>(),
+                        configNode["hipNames"].as<std::vector<std::string>>(),
                         configNode["verbose"].as<bool>());
 
     std::cout << "[LeggedModel]: " << "nDof " << leggedModel.nDof() << std::endl;
@@ -41,4 +42,9 @@ int main(int argc, char **argv)
     auto q_ik = leggedModel.inverseKine3Dof(q_rand.head(leggedModel.nqBase()), contact3DofPoss);
     std::cout << "[LeggedModel]: " << "q_ik " << q_ik.transpose() << std::endl;
     std::cout << "[LeggedModel]: " << "err " << (q_rand-q_ik).tail(leggedModel.nJoints()).norm() << std::endl;
+
+    Eigen::VectorXd qBase(7);
+    qBase << 0, 0, 0.1, 0, 0, 0, 1;
+    Eigen::VectorXd q_pin = leggedModel.inverseKine3Dof(qBase);
+    std::cout << "[LeggedModel]: " << "q_pin " << q_pin.transpose() << std::endl;
 }

@@ -29,6 +29,15 @@ namespace legged {
 vector_t WbcBase::update(const vector_t& qDesired, const vector_t& vDesired, const vector_t& fDesired, 
                          const vector_t& qMeasured, const vector_t& vMeasured, std::array<bool, 4> contactFlag,
                          scalar_t /*period*/ , std::string /*method*/) {
+  if(verbose_) {
+    std::cout << "[WbcBase] qDesired:\n" << qDesired.transpose() << std::endl;
+    std::cout << "[WbcBase] vDesired:\n" << vDesired.transpose() << std::endl;
+    std::cout << "[WbcBase] fDesired:\n" << fDesired.transpose() << std::endl;
+    std::cout << "[WbcBase] qMeasured:\n" << qMeasured.transpose() << std::endl;
+    std::cout << "[WbcBase] vMeasured:\n" << vMeasured.transpose() << std::endl;
+    std::cout << "[WbcBase] contactFlag:\n" << contactFlag[0] << " " << contactFlag[1] << " " << contactFlag[2] << " " << contactFlag[3] << std::endl;
+  }
+
   contactFlag_ = contactFlag;
   numContacts_ = std::accumulate(contactFlag_.begin(), contactFlag_.end(), 0);
 
@@ -413,7 +422,9 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
   leggedModel_.loadUrdf(configNode["urdfPath"].as<std::string>(), "quaternion",
                        configNode["baseName"].as<std::string>(), 
                        configNode["contact3DofNames"].as<std::vector<std::string>>(), 
-                       configNode["contact6DofNames"].as<std::vector<std::string>>(), verbose_);
+                       configNode["contact6DofNames"].as<std::vector<std::string>>(),
+                       configNode["hipNames"].as<std::vector<std::string>>(),
+                       verbose_);
 
   mass_ = pinocchio::computeTotalMass(leggedModel_.model());
 
