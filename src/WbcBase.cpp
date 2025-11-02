@@ -44,7 +44,7 @@ vector_t WbcBase::update(LeggedState des_state, LeggedState real_state, std::arr
   vDesired_ = des_state_.custom_state("v_pin");
   fDesired_ = des_state_.custom_state("f_pin");
   comDes_ = des_state_.com_pos();
-  vcomDes_ = des_state_.com_pos();
+  vcomDes_ = des_state_.com_vel_W();
   hgDes_ << des_state_.com_lin_mom_W(), des_state_.com_ang_mom_W();
   qMeasured_ = real_state_.custom_state("q_pin");
   vMeasured_ = real_state_.custom_state("v_pin");
@@ -255,11 +255,8 @@ Task WbcBase::formulateComTask() {
   Eigen::Vector4d quat = quat_wxyz(qMeasured_.segment(3,4));
   Eigen::Matrix3d R = quat_ToR(quat);
   Eigen::Vector3d a_com;
-  a_com = wbcParam_.comKp_.head(3).asDiagonal()*(qDesired_.head(3) - comAct_) 
-        + wbcParam_.comKd_.head(3).asDiagonal()*(R.transpose()*vDesired_.head(3) - vcomAct_);
-  // TODO: This is the right way to compute, but need some adjustment on the wbc parameters
-  // a_com = wbcParam_.comKp_.head(3).asDiagonal()*(comDes_ - comAct_) 
-  //       + wbcParam_.comKd_.head(3).asDiagonal()*(vcomDes_ - vcomAct_);
+  a_com = wbcParam_.comKp_.head(3).asDiagonal()*(comDes_ - comAct_) 
+        + wbcParam_.comKd_.head(3).asDiagonal()*(vcomDes_ - vcomAct_);
 
   Vector6 h_des;
   h_des << mass_*a_com, 
