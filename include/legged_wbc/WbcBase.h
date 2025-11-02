@@ -16,6 +16,8 @@ namespace legged {
 
 class WbcParameters {
   public:
+  std::string motionName_;
+
   vector_t baseAccelKp_, baseAccelKd_, comAccelKp_, comAccelKd_;
   scalar_t swingKp_, swingKd_;
   scalar_t jointKp_, jointKd_;
@@ -45,6 +47,8 @@ class WbcBase {
 
   double getJointKp() const {return wbcParam_.jointKp_;}
   double getJointKd() const {return wbcParam_.jointKd_;}
+
+  void setWbcParam(const std::string& motionName);
 
  protected:
   double inline computeCost(Task task, vector_t x, double weight = 1){

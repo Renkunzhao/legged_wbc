@@ -425,6 +425,8 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
         std::cout << "[WbcBase] Loading motion parameters from " << motionFile << std::endl;
     }
 
+    param.motionName_ = cfg["motionName"].as<std::string>();
+
     // === Base Acceleration Task ===
     param.baseAccelKp_ = yamlToEigenVector(cfg["baseAccelTask"]["baseAcc_kp"]);
     param.baseAccelKd_ = yamlToEigenVector(cfg["baseAccelTask"]["baseAcc_kd"]);
@@ -481,6 +483,20 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
     }
 }
 
+void WbcBase::setWbcParam(const std::string& motionName) {
+    for (const auto& param : wbcParamList_) {
+        if (param.motionName_ == motionName) {
+            wbcParam_ = param;
+            if (verbose_) {
+                std::cout << "[WbcBase] WBC parameters set to motion: " << motionName << std::endl;
+            }
+            return;
+        }
+    }
+    throw std::runtime_error("[WbcBase] Motion name not found: " + motionName);
+}
+
+
 void WbcBase::loadTasksSetting(const std::string& configFile) {
     std::cout << "[WbcBase] Load config from " << configFile << std::endl;
     YAML::Node configNode = YAML::LoadFile(configFile);
@@ -531,7 +547,7 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
 
     // === Select the first motion as default ===
     if (!wbcParamList_.empty()) {
-        wbcParam_ = wbcParamList_.front();
+        setWbcParam("stand");
     }
 
     torqueLimits_ = yamlToEigenVector(configNode["torqueLimitsTask"]);
@@ -543,7 +559,7 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
         std::cout << "[WbcBase] torqueLimits: " << torqueLimits_.transpose() << std::endl;
         std::cout << "[WbcBase] frictionCoeff: " << frictionCoeff_ << std::endl;
         std::cout << "[WbcBase] Loaded " << wbcParamList_.size()
-                  << " motion configs (default = index 0)" << std::endl;
+                  << " motion params (default = stand)" << std::endl;
     }
 }
 

@@ -43,6 +43,7 @@ frictionConeTask:
 qpSolver: osqp      # osqp qpOASES
 
 motionList:
+  - stand
   - jump
   - land
 
