@@ -13,7 +13,9 @@
 #include <logger/CsvLogger.h>
 
 #include <iostream>
+#include <string>
 #include <vector>
+#include <filesystem>
 
 #include <pinocchio/algorithm/centroidal.hpp>
 #include <pinocchio/algorithm/center-of-mass.hpp>
@@ -22,6 +24,7 @@
 #include <pinocchio/algorithm/rnea.hpp>
 #include <pinocchio/math/rpy.hpp>
 
+namespace fs = std::filesystem;
 using namespace Lie;
 
 namespace legged {
@@ -276,7 +279,7 @@ Task WbcBase::formulateBaseAccelTaskPD() {
 
   vel_error << vDesired_.head(3) - vMeasured_.head(3),
                R.transpose()*R_des*w_des - w; 
-  b = baseAccelKp_.asDiagonal() * pos_error + baseAccelKd_.asDiagonal() * vel_error;
+  b = wbcParam_.baseAccelKp_.asDiagonal() * pos_error + wbcParam_.baseAccelKd_.asDiagonal() * vel_error;
 
   if(verbose_) {
     std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
@@ -300,12 +303,12 @@ Task WbcBase::formulateComAccelTask() {
   Eigen::Vector4d quat = quat_wxyz(qMeasured_.segment(3,4));
   Eigen::Matrix3d R = quat_ToR(quat);
   Eigen::Vector3d a_com;
-  a_com = comAccelKp_.head(3).asDiagonal()*(qDesired_.head(3) - p_comMeasured_) 
-        + comAccelKd_.head(3).asDiagonal()*(R.transpose()*vDesired_.head(3) - v_comMeasured_);
+  a_com = wbcParam_.comAccelKp_.head(3).asDiagonal()*(qDesired_.head(3) - p_comMeasured_) 
+        + wbcParam_.comAccelKd_.head(3).asDiagonal()*(R.transpose()*vDesired_.head(3) - v_comMeasured_);
 
   Vector6 h_des;
   h_des << mass_*a_com, 
-           comAccelKd_.tail(3).asDiagonal()*( - hMeasured_.tail(3));
+           wbcParam_.comAccelKd_.tail(3).asDiagonal()*( - hMeasured_.tail(3));
 
   Vector6 b;
   b = h_des - dAMeasured_*vMeasured_;
@@ -334,7 +337,7 @@ Task WbcBase::formulateSwingLegTask() {
   size_t j = 0;
   for (size_t i = 0; i < leggedModel_.nContacts3Dof(); ++i) {
     if (!contactFlag_[i]) {
-      Eigen::Vector3d accel = swingKp_ * (posDesired[i] - posMeasured[i]) + swingKd_ * (velDesired[i] - velMeasured[i]);
+      Eigen::Vector3d accel = wbcParam_.swingKp_ * (posDesired[i] - posMeasured[i]) + wbcParam_.swingKd_ * (velDesired[i] - velMeasured[i]);
       a.block(3 * j, 0, 3, leggedModel_.nDof()) = jMeasured_.block(3 * i, 0, 3, leggedModel_.nDof());
       b.segment(3 * j, 3) = accel - djMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) * vMeasured_;
       j++;
@@ -413,60 +416,135 @@ Task WbcBase::formulateJointTorqueTask() {
   return jointTorqueTask_;
 }
 
+void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
+{
+    YAML::Node cfg = YAML::LoadFile(motionFile);
+    WbcParameters param;
+
+    if (verbose) {
+        std::cout << "[WbcBase] Loading motion parameters from " << motionFile << std::endl;
+    }
+
+    // === Base Acceleration Task ===
+    param.baseAccelKp_ = yamlToEigenVector(cfg["baseAccelTask"]["baseAcc_kp"]);
+    param.baseAccelKd_ = yamlToEigenVector(cfg["baseAccelTask"]["baseAcc_kd"]);
+
+    // === COM Acceleration Task ===
+    param.comAccelKp_ = yamlToEigenVector(cfg["comAccelTask"]["comAcc_kp"]);
+    param.comAccelKd_ = yamlToEigenVector(cfg["comAccelTask"]["comAcc_kd"]);
+
+    // === Swing Leg Task ===
+    param.swingKp_ = cfg["swingLegTask"]["kp"].as<double>();
+    param.swingKd_ = cfg["swingLegTask"]["kd"].as<double>();
+
+    // === Joint PD ===
+    param.jointKp_ = cfg["jointKp"].as<double>();
+    param.jointKd_ = cfg["jointKd"].as<double>();
+
+    // === Weight (optional) ===
+    if (cfg["weight"]) {
+        const auto& w = cfg["weight"];
+        param.weightBaseAccel_    = yamlToEigenVector(w["baseAccel"]);
+        param.weightComAccel_     = yamlToEigenVector(w["comAccel"]);
+        param.weightContactForce_ = vector_t::Zero(3*leggedModel_.nContacts3Dof());
+        for (size_t i=0; i<leggedModel_.nContacts3Dof(); ++i) {
+          param.weightContactForce_.segment(3*i,3) = yamlToEigenVector(w["contactForce"]);
+        }
+        param.weightSumFz_        = w["SumFz"].as<double>();
+        param.weightSwingLeg_     = w["swingLeg"].as<double>();
+        param.weightJointTorque_  = w["jointTorque"].as<double>();
+    }
+
+    // === Append to list ===
+    wbcParamList_.push_back(param);
+
+    // === Print summary if verbose ===
+    if (verbose) {
+        std::cout << std::fixed << std::setprecision(2);
+        std::cout << "[WbcBase] baseAccelKp: " << param.baseAccelKp_.transpose() << std::endl;
+        std::cout << "[WbcBase] baseAccelKd: " << param.baseAccelKd_.transpose() << std::endl;
+        std::cout << "[WbcBase] comAccelKp:  " << param.comAccelKp_.transpose() << std::endl;
+        std::cout << "[WbcBase] comAccelKd:  " << param.comAccelKd_.transpose() << std::endl;
+        std::cout << "[WbcBase] swingKp: " << param.swingKp_
+                  << "  swingKd: " << param.swingKd_ << std::endl;
+        std::cout << "[WbcBase] jointKp: " << param.jointKp_
+                  << "  jointKd: " << param.jointKd_ << std::endl;
+        if (cfg["weight"]) {
+            std::cout << "[WbcBase] weight.BaseAccel: " << param.weightBaseAccel_.transpose() << std::endl;
+            std::cout << "[WbcBase] weight.ComAccel:  " << param.weightComAccel_.transpose() << std::endl;
+            std::cout << "[WeightedWbc] weightContactForce: " << param.weightContactForce_.transpose() << std::endl;
+            std::cout << "[WeightedWbc] weightSumFz: " << param.weightSumFz_ << std::endl;
+            std::cout << "[WeightedWbc] weightSwingLeg: " << param.weightSwingLeg_ << std::endl;
+            std::cout << "[WeightedWbc] weightJointTorque: " << param.weightJointTorque_ << std::endl;
+        }
+        std::cout << "[WbcBase] Motion param loaded successfully." << std::endl;
+    }
+}
+
 void WbcBase::loadTasksSetting(const std::string& configFile) {
-  std::cout << "[WbcBase] Load config from " << configFile << std::endl;
-  YAML::Node configNode = YAML::LoadFile(configFile);
+    std::cout << "[WbcBase] Load config from " << configFile << std::endl;
+    YAML::Node configNode = YAML::LoadFile(configFile);
 
-  verbose_ = configNode["verbose"].as<bool>();
+    verbose_ = configNode["verbose"].as<bool>();
 
-  leggedModel_.loadUrdf(configNode["urdfPath"].as<std::string>(), "quaternion",
-                       configNode["baseName"].as<std::string>(), 
-                       configNode["contact3DofNames"].as<std::vector<std::string>>(), 
-                       configNode["contact6DofNames"].as<std::vector<std::string>>(),
-                       configNode["hipNames"].as<std::vector<std::string>>(),
-                       verbose_);
+    // === General robot setup ===
+    leggedModel_.loadUrdf(configNode["urdfPath"].as<std::string>(), "quaternion",
+                          configNode["baseName"].as<std::string>(),
+                          configNode["contact3DofNames"].as<std::vector<std::string>>(),
+                          configNode["contact6DofNames"].as<std::vector<std::string>>(),
+                          configNode["hipNames"].as<std::vector<std::string>>(),
+                          verbose_);
 
-  mass_ = pinocchio::computeTotalMass(leggedModel_.model());
+    mass_ = pinocchio::computeTotalMass(leggedModel_.model());
 
-  numDecisionVars_ = leggedModel_.nDof() + 3 * leggedModel_.nContacts3Dof() + leggedModel_.nContacts6Dof()*6 + leggedModel_.nJoints();
-  qMeasured_ = vector_t(leggedModel_.nqBase());
-  vMeasured_ = vector_t(leggedModel_.nDof());
-  qDesired_ = vector_t(leggedModel_.nqBase());
-  vDesired_ = vector_t(leggedModel_.nDof());
-  vDesiredLast_ = vector_t(leggedModel_.nDof());
-  fDesired_ = vector_t(leggedModel_.nContacts3Dof()*3 + leggedModel_.nContacts6Dof()*6);
+    numDecisionVars_ = leggedModel_.nDof()
+        + 3 * leggedModel_.nContacts3Dof()
+        + 6 * leggedModel_.nContacts6Dof()
+        + leggedModel_.nJoints();
 
-  baseAccelKp_ = yamlToEigenVector(configNode["baseAccelTask"]["baseAcc_kp"]);
-  baseAccelKd_ = yamlToEigenVector(configNode["baseAccelTask"]["baseAcc_kd"]);
-  comAccelKp_ = yamlToEigenVector(configNode["comAccelTask"]["comAcc_kp"]);
-  comAccelKd_ = yamlToEigenVector(configNode["comAccelTask"]["comAcc_kd"]);
-  swingKp_ = configNode["swingLegTask"]["kp"].as<double>();
-  swingKd_ = configNode["swingLegTask"]["kd"].as<double>();
-  torqueLimits_ = yamlToEigenVector(configNode["torqueLimitsTask"]);
-  frictionCoeff_ = configNode["frictionConeTask"]["frictionCoefficient"].as<double>();
+    qMeasured_.resize(leggedModel_.nqBase());
+    vMeasured_.resize(leggedModel_.nDof());
+    qDesired_.resize(leggedModel_.nqBase());
+    vDesired_.resize(leggedModel_.nDof());
+    vDesiredLast_.resize(leggedModel_.nDof());
+    fDesired_.resize(3 * leggedModel_.nContacts3Dof() + 6 * leggedModel_.nContacts6Dof());
 
-  jointKp_ = configNode["jointKp"].as<double>();
-  jointKd_ = configNode["jointKd"].as<double>();
+    // === Load each motion config ===
+    if (configNode["motionList"] && configNode["motionList"].IsSequence()) {
+        wbcParamList_.clear();
 
-  if(true) {
-    std::cout << std::fixed << std::setprecision(2) << std::endl;
-    std::cout << "[WbcBase] mass: " << mass_ << std::endl;
-    std::cout << "[WbcBase] numDecisionVars: " << numDecisionVars_ << std::endl;
-    std::cout << "[WbcBase] size of qMeasured : " << qMeasured_.size() << std::endl;
-    std::cout << "[WbcBase] size of fDesired_: " << fDesired_.size() << std::endl;
+        // Get directory of the main config file
+        fs::path baseDir = fs::absolute(fs::path(configFile)).parent_path();
 
-    std::cout << "[WbcBase] baseAccelKp: " << baseAccelKp_.transpose() << std::endl;
-    std::cout << "[WbcBase] baseAccelKd: " << baseAccelKd_.transpose() << std::endl;
-    std::cout << "[WbcBase] comAccelKp: " << comAccelKp_.transpose() << std::endl;
-    std::cout << "[WbcBase] comAccelKd: " << comAccelKd_.transpose() << std::endl;
-    std::cout << "[WbcBase] swingKp: " << swingKp_ << std::endl;
-    std::cout << "[WbcBase] swingKd: " << swingKd_ << std::endl;
-    std::cout << "[WbcBase] torqueLimits: " << torqueLimits_.transpose() << std::endl;
-    std::cout << "[WbcBase] frictionCoeff: " << frictionCoeff_ << std::endl;
+        for (const auto& motionName : configNode["motionList"].as<std::vector<std::string>>()) {
+            fs::path motionFile = baseDir / (motionName + ".yaml");
 
-    std::cout << "[WbcBase] jointKp: " << jointKp_ << std::endl;
-    std::cout << "[WbcBase] jointKd: " << jointKd_ << std::endl;
-  }
+            if (!fs::exists(motionFile)) {
+                throw std::runtime_error("[WbcBase] Motion file not found: " + motionFile.string());
+            }
+
+            loadWbcParam(motionFile.string(), verbose_);
+        }
+    } else {
+        throw std::runtime_error("[WbcBase] motionList not found or not a list in config file.");
+    }
+
+    // === Select the first motion as default ===
+    if (!wbcParamList_.empty()) {
+        wbcParam_ = wbcParamList_.front();
+    }
+
+    torqueLimits_ = yamlToEigenVector(configNode["torqueLimitsTask"]);
+    frictionCoeff_ = configNode["frictionConeTask"]["frictionCoefficient"].as<double>();
+
+    if (verbose_) {
+        std::cout << "[WbcBase] Mass: " << mass_ << std::endl;
+        std::cout << "[WbcBase] Decision vars: " << numDecisionVars_ << std::endl;
+        std::cout << "[WbcBase] torqueLimits: " << torqueLimits_.transpose() << std::endl;
+        std::cout << "[WbcBase] frictionCoeff: " << frictionCoeff_ << std::endl;
+        std::cout << "[WbcBase] Loaded " << wbcParamList_.size()
+                  << " motion configs (default = index 0)" << std::endl;
+    }
 }
 
 void WbcBase::log(const vector_t& x){

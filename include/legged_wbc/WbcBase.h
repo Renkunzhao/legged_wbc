@@ -14,6 +14,16 @@
 
 namespace legged {
 
+class WbcParameters {
+  public:
+  vector_t baseAccelKp_, baseAccelKd_, comAccelKp_, comAccelKd_;
+  scalar_t swingKp_, swingKd_;
+  scalar_t jointKp_, jointKd_;
+
+  Eigen::VectorXd weightBaseAccel_, weightComAccel_, weightContactForce_;
+  scalar_t weightSumFz_, weightSwingLeg_, weightJointTorque_;
+};
+
 // Decision Variables: x = [\dot u^T, F^T, \tau^T]^T
 class WbcBase {
   using Vector6 = Eigen::Matrix<scalar_t, 6, 1>;
@@ -33,8 +43,8 @@ class WbcBase {
   size_t mass() const {return mass_;}
   LeggedModel& leggedModel() {return leggedModel_;}
 
-  double getJointKp() const {return jointKp_;}
-  double getJointKd() const {return jointKd_;}
+  double getJointKp() const {return wbcParam_.jointKp_;}
+  double getJointKd() const {return wbcParam_.jointKd_;}
 
  protected:
   double inline computeCost(Task task, vector_t x, double weight = 1){
@@ -92,10 +102,11 @@ class WbcBase {
   // Task Parameters:
   bool verbose_;
   vector_t torqueLimits_ = vector_t::Zero(3);
-  vector_t baseAccelKp_ = vector_t::Zero(6), baseAccelKd_ = vector_t::Zero(6);
-  vector_t comAccelKp_ = vector_t::Zero(6), comAccelKd_ = vector_t::Zero(6);
-  scalar_t frictionCoeff_{}, swingKp_{}, swingKd_{};
-  scalar_t jointKp_, jointKd_;
+  scalar_t frictionCoeff_{};
+
+  void loadWbcParam(const std::string& motionFile, bool verbose);
+  vector<WbcParameters> wbcParamList_;
+  WbcParameters wbcParam_;
 
   // Task
   Task swingLegTask_, baseAccTask_, comAccTask_, contactForceTask_, SumFzTask_, jointTorqueTask_;

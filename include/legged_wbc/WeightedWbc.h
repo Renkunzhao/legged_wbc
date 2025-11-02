@@ -26,9 +26,6 @@ class WeightedWbc : public WbcBase {
 
  private:
   std::string qpSolver_ = "qpOASES";
-  Eigen::VectorXd weightBaseAccel_ = vector_t::Zero(6), weightComAccel_ = vector_t::Zero(6);
-  Eigen::VectorXd weightContactForce_;
-  scalar_t weightSumFz_, weightSwingLeg_, weightJointTorque_;
 
   // --- solver backends 封装 ---
   vector_t solveWithQPOases(const Eigen::MatrixXd& H,

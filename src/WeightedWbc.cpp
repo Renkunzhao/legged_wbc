@@ -155,12 +155,12 @@ Task WeightedWbc::formulateConstraints() {
 
 Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
   if (method == "centroidal") {
-    return formulateSwingLegTask() * weightSwingLeg_ + formulateBaseAccelTask(period) * weightBaseAccel_ +
-          formulateContactForceTask() * weightContactForce_;
+    return formulateSwingLegTask() * wbcParam_.weightSwingLeg_ + formulateBaseAccelTask(period) * wbcParam_.weightBaseAccel_ +
+          formulateContactForceTask() * wbcParam_.weightContactForce_;
   } else if (method == "pd") {
-    return formulateSwingLegTask() * weightSwingLeg_ + formulateBaseAccelTaskPD()*weightBaseAccel_ + formulateComAccelTask()*weightComAccel_ +
-      formulateContactForceTask() * weightContactForce_ + formulateSumFzTask()*weightSumFz_ +  
-      formulateJointTorqueTask() * weightJointTorque_;
+    return formulateSwingLegTask() * wbcParam_.weightSwingLeg_ + formulateBaseAccelTaskPD() * wbcParam_.weightBaseAccel_ + formulateComAccelTask() * wbcParam_.weightComAccel_ +
+      formulateContactForceTask() * wbcParam_.weightContactForce_ + formulateSumFzTask() * wbcParam_.weightSumFz_ +  
+      formulateJointTorqueTask() * wbcParam_.weightJointTorque_;
   }
 }
 
@@ -171,24 +171,9 @@ void WeightedWbc::loadTasksSetting(const std::string& configFile) {
   YAML::Node configNode = YAML::LoadFile(configFile);
 
   qpSolver_ = configNode["qpSolver"].as<std::string>();
-  weightBaseAccel_ = yamlToEigenVector(configNode["weight"]["baseAccel"]);
-  weightComAccel_ = yamlToEigenVector(configNode["weight"]["comAccel"]);
-  weightContactForce_ = vector_t::Zero(3*leggedModel_.nContacts3Dof());
-  for (size_t i=0; i<leggedModel_.nContacts3Dof(); ++i) {
-    weightContactForce_.segment(3*i,3) = yamlToEigenVector(configNode["weight"]["contactForce"]);
-  }
-  weightSumFz_ = configNode["weight"]["SumFz"].as<double>();
-  weightSwingLeg_ = configNode["weight"]["swingLeg"].as<double>();
-  weightJointTorque_ = configNode["weight"]["jointTorque"].as<double>();
 
   if(true) {
     std::cout << "[WeightedWbc] qpSolver: " << qpSolver_ << std::endl;
-    std::cout << "[WeightedWbc] weightBaseAccel: " << weightBaseAccel_.transpose() << std::endl;
-    std::cout << "[WeightedWbc] weightComAccel: " << weightComAccel_.transpose() << std::endl;
-    std::cout << "[WeightedWbc] weightContactForce: " << weightContactForce_.transpose() << std::endl;
-    std::cout << "[WeightedWbc] weightSumFz: " << weightSumFz_ << std::endl;
-    std::cout << "[WeightedWbc] weightSwingLeg: " << weightSwingLeg_ << std::endl;
-    std::cout << "[WeightedWbc] weightJointTorque: " << weightJointTorque_ << std::endl;
   }
 }
 
@@ -200,12 +185,12 @@ void WeightedWbc::log(const vector_t& x){
     logger.update("wbc_lambda", (Eigen::VectorXd)x.segment(leggedModel_.nDof(), 3*leggedModel_.nContacts3Dof()+leggedModel_.nContacts6Dof()*6 ));
     logger.update("wbc_tau", (Eigen::VectorXd)x.tail(leggedModel_.nJoints()));
 
-    logger.update("swingLegCost", computeCost(swingLegTask_, x, weightSwingLeg_));
-    logger.update("baseAccCost", computeCost(baseAccTask_, x, weightBaseAccel_));
-    logger.update("comAccCost", computeCost(comAccTask_, x, weightComAccel_));
-    logger.update("contactForceCost", computeCost(contactForceTask_, x, weightContactForce_));
-    logger.update("sumFzCost", computeCost(SumFzTask_, x, weightSumFz_));
-    logger.update("jointTorqueCost", computeCost(jointTorqueTask_, x, weightJointTorque_));
+    logger.update("swingLegCost", computeCost(swingLegTask_, x, wbcParam_.weightSwingLeg_));
+    logger.update("baseAccCost", computeCost(baseAccTask_, x, wbcParam_.weightBaseAccel_));
+    logger.update("comAccCost", computeCost(comAccTask_, x, wbcParam_.weightComAccel_));
+    logger.update("contactForceCost", computeCost(contactForceTask_, x, wbcParam_.weightContactForce_));
+    logger.update("sumFzCost", computeCost(SumFzTask_, x, wbcParam_.weightSumFz_));
+    logger.update("jointTorqueCost", computeCost(jointTorqueTask_, x, wbcParam_.weightJointTorque_));
 }
 
 }  // namespace legged
