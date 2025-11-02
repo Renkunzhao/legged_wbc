@@ -10,10 +10,9 @@
 
 namespace legged {
 
-vector_t WeightedWbc::update(const vector_t& qDesired, const vector_t& vDesired, const vector_t& fDesired,
-                             const vector_t& qMeasured, const vector_t& vMeasured, std::array<bool, 4> contactFlag,
+vector_t WeightedWbc::update(LeggedState des_state, LeggedState real_state, std::array<bool, 4> contactFlag,
                              scalar_t period, std::string method) {
-  WbcBase::update(qDesired, vDesired, fDesired, qMeasured, vMeasured, contactFlag, period);
+  WbcBase::update(des_state, real_state, contactFlag, period);
 
   // Constraints
   Task constraints = formulateConstraints();
@@ -155,10 +154,11 @@ Task WeightedWbc::formulateConstraints() {
 
 Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
   if (method == "centroidal") {
-    return formulateSwingLegTask() * wbcParam_.weightSwingLeg_ + formulateBaseAccelTask(period) * wbcParam_.weightBaseAccel_ +
-          formulateContactForceTask() * wbcParam_.weightContactForce_;
+    return Task();
+    // return formulateSwingLegTask() * wbcParam_.weightSwingLeg_ + formulateBaseAccelTask(period) * wbcParam_.weightBaseAccel_ +
+    //       formulateContactForceTask() * wbcParam_.weightContactForce_;
   } else if (method == "pd") {
-    return formulateSwingLegTask() * wbcParam_.weightSwingLeg_ + formulateBaseAccelTaskPD() * wbcParam_.weightBaseAccel_ + formulateComAccelTask() * wbcParam_.weightComAccel_ +
+    return formulateSwingLegTask() * wbcParam_.weightSwingLeg_ + formulateBaseAccelTaskPD() * wbcParam_.weightBaseAccel_ + formulateComTask() * wbcParam_.weightCom_ +
       formulateContactForceTask() * wbcParam_.weightContactForce_ + formulateSumFzTask() * wbcParam_.weightSumFz_ +  
       formulateJointTorqueTask() * wbcParam_.weightJointTorque_;
   }
@@ -187,7 +187,7 @@ void WeightedWbc::log(const vector_t& x){
 
     logger.update("swingLegCost", computeCost(swingLegTask_, x, wbcParam_.weightSwingLeg_));
     logger.update("baseAccCost", computeCost(baseAccTask_, x, wbcParam_.weightBaseAccel_));
-    logger.update("comAccCost", computeCost(comAccTask_, x, wbcParam_.weightComAccel_));
+    logger.update("comCost", computeCost(comTask_, x, wbcParam_.weightCom_));
     logger.update("contactForceCost", computeCost(contactForceTask_, x, wbcParam_.weightContactForce_));
     logger.update("sumFzCost", computeCost(SumFzTask_, x, wbcParam_.weightSumFz_));
     logger.update("jointTorqueCost", computeCost(jointTorqueTask_, x, wbcParam_.weightJointTorque_));

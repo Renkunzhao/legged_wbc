@@ -6,7 +6,6 @@
 
 #include "legged_wbc/Task.h"
 #include "legged_wbc/Types.h"
-#include "legged_wbc/ModelHelperFunctions.h"
 #include "legged_wbc/Lie.h"
 #include "legged_wbc/WbcBase.h"
 
@@ -29,26 +28,26 @@ using namespace Lie;
 
 namespace legged {
 
-vector_t WbcBase::update(const vector_t& qDesired, const vector_t& vDesired, const vector_t& fDesired, 
-                         const vector_t& qMeasured, const vector_t& vMeasured, std::array<bool, 4> contactFlag,
+vector_t WbcBase::update(LeggedState des_state, LeggedState real_state, std::array<bool, 4> contactFlag,
                          scalar_t /*period*/ , std::string /*method*/) {
   if(verbose_) {
-    std::cout << "[WbcBase] qDesired:\n" << qDesired.transpose() << std::endl;
-    std::cout << "[WbcBase] vDesired:\n" << vDesired.transpose() << std::endl;
-    std::cout << "[WbcBase] fDesired:\n" << fDesired.transpose() << std::endl;
-    std::cout << "[WbcBase] qMeasured:\n" << qMeasured.transpose() << std::endl;
-    std::cout << "[WbcBase] vMeasured:\n" << vMeasured.transpose() << std::endl;
     std::cout << "[WbcBase] contactFlag:\n" << contactFlag[0] << " " << contactFlag[1] << " " << contactFlag[2] << " " << contactFlag[3] << std::endl;
   }
 
   contactFlag_ = contactFlag;
   numContacts_ = std::accumulate(contactFlag_.begin(), contactFlag_.end(), 0);
 
-  qDesired_ = qDesired;
-  vDesired_ = vDesired;
-  fDesired_ = fDesired;
-  qMeasured_ = qMeasured;
-  vMeasured_ = vMeasured;
+  des_state_ = des_state;
+  real_state_ = real_state;
+
+  qDesired_ = des_state_.custom_state("q_pin");
+  vDesired_ = des_state_.custom_state("v_pin");
+  fDesired_ = des_state_.custom_state("f_pin");
+  comDes_ = des_state_.com_pos();
+  vcomDes_ = des_state_.com_pos();
+  hgDes_ << des_state_.com_lin_mom_W(), des_state_.com_ang_mom_W();
+  qMeasured_ = real_state_.custom_state("q_pin");
+  vMeasured_ = real_state_.custom_state("v_pin");
   updateMeasured();
   updateDesired();
   return {};
@@ -82,11 +81,11 @@ void WbcBase::updateMeasured() {
     djMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) = jac.template topRows<3>();
   }
 
-  // ComAccTask
+  // ComTask
   pinocchio::computeCentroidalMomentum(model, data, qMeasured_, vMeasured_);
-  p_comMeasured_ = data.com[0];
-  v_comMeasured_ = data.vcom[0];
-  hMeasured_ = data.hg.toVector();
+  comAct_ = data.com[0];
+  vcomAct_ = data.vcom[0];
+  hgAct_ = data.hg.toVector();
 
   AMeasured_ = matrix_t(6, leggedModel_.nDof());
   dAMeasured_ = matrix_t(6, leggedModel_.nDof());
@@ -107,18 +106,6 @@ void WbcBase::updateMeasured() {
 void WbcBase::updateDesired() {
   const auto& model = leggedModel_.model();
   auto& data = leggedModel_.data();
-
-  p_comDesired_ = pinocchio::centerOfMass(model, data, qDesired_);
-
-  ADesired_ = matrix_t(6, leggedModel_.nDof());
-  dADesired_ = matrix_t(6, leggedModel_.nDof());
-  ADesired_ = pinocchio::computeCentroidalMap(model, data, qDesired_);
-  dADesired_ = pinocchio::dccrba(model, data, qDesired_, vDesired_);
-
-  if(verbose_) {
-    std::cout << "[WbcBase] ADesired:\n" << ADesired_ << std::endl;
-    std::cout << "[WbcBase] dADesired:\n" << dADesired_ << std::endl;
-  }
 }
 
 Task WbcBase::formulateFloatingBaseEomTask() {
@@ -226,38 +213,6 @@ Task WbcBase::formulateFrictionConeTask() {
   return {a, b, d, f};
 }
 
-Task WbcBase::formulateBaseAccelTask(scalar_t period) {
-  matrix_t a(6, numDecisionVars_);
-  a.setZero();
-  a.block(0, 0, 6, 6) = matrix_t::Identity(6, 6);
-
-  vector_t jointAccel = (vDesired_ - vDesiredLast_).tail(leggedModel_.nJoints());
-  vDesiredLast_ = vDesired_;
-
-  const Matrix6 Ab = ADesired_.template leftCols<6>();
-  const auto AbInv = computeFloatingBaseCentroidalMomentumMatrixInverse(Ab);
-  const auto Aj = ADesired_.rightCols(leggedModel_.nJoints());
-
-  Vector6 centroidalMomentumRate = mass_ * getNormalizedCentroidalMomentumRate(mass_, 
-                                                                              p_comDesired_,
-                                                                              leggedModel_.contact3DofPoss(qDesired_),
-                                                                              leggedModel_.contact6DofPoss(qDesired_),
-                                                                              fDesired_);
-  centroidalMomentumRate.noalias() -= dADesired_ * vDesired_;
-  centroidalMomentumRate.noalias() -= Aj * jointAccel;
-
-  Vector6 b = AbInv * centroidalMomentumRate;
-
-  if(verbose_) {
-    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
-    std::cout << "[WbcBase] BaseAccelTask " << std::endl;
-    std::cout << "[WbcBase] a:\n" << a << std::endl;
-    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
-  }
-
-  return {a, b, matrix_t(), vector_t()};
-}
-
 Task WbcBase::formulateBaseAccelTaskPD() {
   matrix_t a(6, numDecisionVars_);
   a.setZero();
@@ -292,36 +247,36 @@ Task WbcBase::formulateBaseAccelTaskPD() {
   return baseAccTask_;
 }
 
-Task WbcBase::formulateComAccelTask() {
+Task WbcBase::formulateComTask() {
   matrix_t a(6, numDecisionVars_);
   a.setZero();
   a.block(0, 0, 6, leggedModel_.nDof()) = AMeasured_;
 
-  // Here, we assume that qDesired_.head(3) and vDesired_.head(3) represent desired com postion and velocity
-  // Because base linear velocity in vDesired is expressed in base frame, so R.transpose()*vDesired_.head(3) are desired com velocity in world frame
-  hDesired_.setZero();
   Eigen::Vector4d quat = quat_wxyz(qMeasured_.segment(3,4));
   Eigen::Matrix3d R = quat_ToR(quat);
   Eigen::Vector3d a_com;
-  a_com = wbcParam_.comAccelKp_.head(3).asDiagonal()*(qDesired_.head(3) - p_comMeasured_) 
-        + wbcParam_.comAccelKd_.head(3).asDiagonal()*(R.transpose()*vDesired_.head(3) - v_comMeasured_);
+  a_com = wbcParam_.comKp_.head(3).asDiagonal()*(qDesired_.head(3) - comAct_) 
+        + wbcParam_.comKd_.head(3).asDiagonal()*(R.transpose()*vDesired_.head(3) - vcomAct_);
+  // TODO: This is the right way to compute, but need some adjustment on the wbc parameters
+  // a_com = wbcParam_.comKp_.head(3).asDiagonal()*(comDes_ - comAct_) 
+  //       + wbcParam_.comKd_.head(3).asDiagonal()*(vcomDes_ - vcomAct_);
 
   Vector6 h_des;
   h_des << mass_*a_com, 
-           wbcParam_.comAccelKd_.tail(3).asDiagonal()*( - hMeasured_.tail(3));
+           wbcParam_.comKd_.tail(3).asDiagonal()*(hgDes_ - hgAct_).tail(3);
 
   Vector6 b;
   b = h_des - dAMeasured_*vMeasured_;
 
   if(verbose_) {
     std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
-    std::cout << "[WbcBase] ComAccelTaskPD " << std::endl;
+    std::cout << "[WbcBase] ComTaskPD " << std::endl;
     std::cout << "[WbcBase] a:\n" << a << std::endl;
     std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
   }
 
-  comAccTask_ = Task(a, b, matrix_t(), vector_t());
-  return comAccTask_;
+  comTask_ = Task(a, b, matrix_t(), vector_t());
+  return comTask_;
 }
 
 Task WbcBase::formulateSwingLegTask() {
@@ -432,8 +387,8 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
     param.baseAccelKd_ = yamlToEigenVector(cfg["baseAccelTask"]["baseAcc_kd"]);
 
     // === COM Acceleration Task ===
-    param.comAccelKp_ = yamlToEigenVector(cfg["comAccelTask"]["comAcc_kp"]);
-    param.comAccelKd_ = yamlToEigenVector(cfg["comAccelTask"]["comAcc_kd"]);
+    param.comKp_ = yamlToEigenVector(cfg["comTask"]["com_kp"]);
+    param.comKd_ = yamlToEigenVector(cfg["comTask"]["com_kd"]);
 
     // === Swing Leg Task ===
     param.swingKp_ = cfg["swingLegTask"]["kp"].as<double>();
@@ -447,7 +402,7 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
     if (cfg["weight"]) {
         const auto& w = cfg["weight"];
         param.weightBaseAccel_    = yamlToEigenVector(w["baseAccel"]);
-        param.weightComAccel_     = yamlToEigenVector(w["comAccel"]);
+        param.weightCom_ = yamlToEigenVector(w["com"]);
         param.weightContactForce_ = vector_t::Zero(3*leggedModel_.nContacts3Dof());
         for (size_t i=0; i<leggedModel_.nContacts3Dof(); ++i) {
           param.weightContactForce_.segment(3*i,3) = yamlToEigenVector(w["contactForce"]);
@@ -465,15 +420,15 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
         std::cout << std::fixed << std::setprecision(2);
         std::cout << "[WbcBase] baseAccelKp: " << param.baseAccelKp_.transpose() << std::endl;
         std::cout << "[WbcBase] baseAccelKd: " << param.baseAccelKd_.transpose() << std::endl;
-        std::cout << "[WbcBase] comAccelKp:  " << param.comAccelKp_.transpose() << std::endl;
-        std::cout << "[WbcBase] comAccelKd:  " << param.comAccelKd_.transpose() << std::endl;
+        std::cout << "[WbcBase] comKp:  " << param.comKp_.transpose() << std::endl;
+        std::cout << "[WbcBase] comKd:  " << param.comKd_.transpose() << std::endl;
         std::cout << "[WbcBase] swingKp: " << param.swingKp_
                   << "  swingKd: " << param.swingKd_ << std::endl;
         std::cout << "[WbcBase] jointKp: " << param.jointKp_
                   << "  jointKd: " << param.jointKd_ << std::endl;
         if (cfg["weight"]) {
             std::cout << "[WbcBase] weight.BaseAccel: " << param.weightBaseAccel_.transpose() << std::endl;
-            std::cout << "[WbcBase] weight.ComAccel:  " << param.weightComAccel_.transpose() << std::endl;
+            std::cout << "[WbcBase] weight.Com:  " << param.weightCom_.transpose() << std::endl;
             std::cout << "[WeightedWbc] weightContactForce: " << param.weightContactForce_.transpose() << std::endl;
             std::cout << "[WeightedWbc] weightSumFz: " << param.weightSumFz_ << std::endl;
             std::cout << "[WeightedWbc] weightSwingLeg: " << param.weightSwingLeg_ << std::endl;

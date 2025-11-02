@@ -47,9 +47,7 @@ link_directories(
 
 # 创建库
 add_library(${PROJECT_NAME} STATIC
-    src/HoQp.cpp
     src/WbcBase.cpp
-    src/HierarchicalWbc.cpp
     src/WeightedWbc.cpp
     src/LeggedState.cpp
     src/LeggedModel.cpp

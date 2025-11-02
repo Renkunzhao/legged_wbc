@@ -14,9 +14,8 @@
  * @brief 浮动基机器人状态类，封装了位置、姿态、速度和动量等所有状态数据，并提供自动更新的逻辑。
  *        使用 Eigen 库进行矩阵、向量和四元数运算，确保数据同步。
  *
- * @warning：该类目前仍在测试中，以下是已测试完成的函数列表：
- * - [ ]
- * - [ ]
+ * @warning：
+ * - COM 位置、速度、加速度和动量需要外部计算后设置。
  */
 
 using namespace std;
@@ -55,6 +54,12 @@ private:
     vector<string> ee6Dof_names_;
     VectorXd ee3Dof_fc_;
     VectorXd ee6Dof_fc_;
+
+    Eigen::Vector3d com_pos_;
+    Eigen::Vector3d com_vel_W_;
+    Eigen::Vector3d com_acc_W_;
+    Eigen::Vector3d com_lin_mom_W_;
+    Eigen::Vector3d com_ang_mom_W_;
 
     Eigen::VectorXd rbd_state_;
 
@@ -241,6 +246,12 @@ public:
     void setEE3DofFc(const VectorXd& ee3Dof_fc, const vector<string>& ee3Dof_order = {});
     void setEE6DofFc(const VectorXd& ee6Dof_fc, const vector<string>& ee6Dof_order = {});
 
+    void setComPos(const Eigen::Vector3d& com_pos) { com_pos_ = com_pos; }
+    void setComVelW(const Eigen::Vector3d& com_vel_W) { com_vel_W_ = com_vel_W; }
+    void setComAccW(const Eigen::Vector3d& com_acc_W) { com_acc_W_ = com_acc_W; }
+    void setComLinMomW(const Eigen::Vector3d& com_lin_mom_W) { com_lin_mom_W_ = com_lin_mom_W; }
+    void setComAngMomW(const Eigen::Vector3d& com_ang_mom_W) { com_ang_mom_W_ = com_ang_mom_W; }
+
     // 完整状态更新
     /**
      * @brief 根据RBD状态向量更新所有主状态变量。
@@ -271,6 +282,11 @@ public:
     const Eigen::VectorXd& joint_tau() const { return joint_tau_; }
     const Eigen::VectorXd& ee3Dof_fc() const { return ee3Dof_fc_; }
     const Eigen::VectorXd& ee6Dof_fc() const { return ee6Dof_fc_; }
+    const Eigen::Vector3d& com_pos() const { return com_pos_; }
+    const Eigen::Vector3d& com_vel_W() const { return com_vel_W_; }
+    const Eigen::Vector3d& com_acc_W() const { return com_acc_W_; }
+    const Eigen::Vector3d& com_lin_mom_W() const { return com_lin_mom_W_; }
+    const Eigen::Vector3d& com_ang_mom_W() const { return com_ang_mom_W_; }
 
     const std::vector<std::string>& joint_names() const {return joint_names_;}
     const std::vector<std::string>& ee3Dof_names() const {return ee3Dof_names_;}

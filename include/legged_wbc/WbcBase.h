@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "legged_wbc/LeggedState.h"
 #include "legged_wbc/Task.h"
 #include "legged_wbc/LeggedModel.h"
 #include "legged_wbc/Types.h"
@@ -18,11 +19,11 @@ class WbcParameters {
   public:
   std::string motionName_;
 
-  vector_t baseAccelKp_, baseAccelKd_, comAccelKp_, comAccelKd_;
+  vector_t baseAccelKp_, baseAccelKd_, comKp_, comKd_;
   scalar_t swingKp_, swingKd_;
   scalar_t jointKp_, jointKd_;
 
-  Eigen::VectorXd weightBaseAccel_, weightComAccel_, weightContactForce_;
+  Eigen::VectorXd weightBaseAccel_, weightCom_, weightContactForce_;
   scalar_t weightSumFz_, weightSwingLeg_, weightJointTorque_;
 };
 
@@ -38,8 +39,8 @@ class WbcBase {
 
   virtual void log(const vector_t& x);
 
-  virtual vector_t update(const vector_t& qDesired, const vector_t& vDesired, const vector_t& fDesired,
-                          const vector_t& qMeasured, const vector_t& vMeasured, std::array<bool, 4> contactFlag,
+  virtual vector_t update(LeggedState des_state, LeggedState real_state,
+                          std::array<bool, 4> contactFlag,
                           scalar_t period, std::string method = "centroidal");
 
   size_t mass() const {return mass_;}
@@ -74,9 +75,8 @@ class WbcBase {
   Task formulateTorqueLimitsTask();
   Task formulateNoContactMotionTask();
   Task formulateFrictionConeTask();
-  Task formulateBaseAccelTask(scalar_t period);
   Task formulateBaseAccelTaskPD();
-  Task formulateComAccelTask();
+  Task formulateComTask();
   Task formulateSwingLegTask();
   Task formulateContactForceTask();
   Task formulateSumFzTask();
@@ -86,13 +86,14 @@ class WbcBase {
   size_t numDecisionVars_;
 
   double mass_;
+  LeggedState des_state_, real_state_;
   vector_t qMeasured_, vMeasured_, qDesired_, vDesired_, vDesiredLast_, fDesired_;
+  Eigen::Vector3d comDes_, vcomDes_, comAct_, vcomAct_;
+  Vector6 hgDes_, hgAct_;
   size_t numContacts_;
   std::array<bool, 4> contactFlag_;
   matrix_t MMeasured_, nleMeasured_, jMeasured_, djMeasured_;
-  Eigen::Vector3d p_comMeasured_, v_comMeasured_, p_comDesired_;
-  Vector6 hMeasured_, hDesired_;
-  matrix_t AMeasured_, dAMeasured_, ADesired_, dADesired_;
+  matrix_t AMeasured_, dAMeasured_;
 
   // 将 YAML list 转换为 Eigen::VectorXd
   inline Eigen::VectorXd yamlToEigenVector(const YAML::Node& node) {
@@ -113,7 +114,7 @@ class WbcBase {
   WbcParameters wbcParam_;
 
   // Task
-  Task swingLegTask_, baseAccTask_, comAccTask_, contactForceTask_, SumFzTask_, jointTorqueTask_;
+  Task swingLegTask_, baseAccTask_, comTask_, contactForceTask_, SumFzTask_, jointTorqueTask_;
 };
 
 }  // namespace legged

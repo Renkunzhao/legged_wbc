@@ -34,8 +34,8 @@ int main(int argc, char* argv[]) {
 
     for(size_t i=0;i<4;i++) fDesired[3*i + 2] = weightedWbc.mass() * 9.81 / 4.0;
 
-    auto x = weightedWbc.update(qDesired, vDesired, fDesired, qMeasured, vMeasured, 
-                                        {true, true, true, true}, 0.001, "pd");
+    // auto x = weightedWbc.update(qDesired, vDesired, fDesired, qMeasured, vMeasured, 
+    //                                     {true, true, true, true}, 0.001, "pd");
 
     return 0;
 }
