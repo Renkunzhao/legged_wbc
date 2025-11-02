@@ -23,6 +23,7 @@ std::map<std::string, Eigen::VectorXd> LeggedState::getStateMap() const {
     state_map["base_eulerZYX_dot"] = base_eulerZYX_dot_;
     state_map["joint_pos"] = joint_pos_;
     state_map["joint_vel"] = joint_vel_;
+    state_map["joint_tau"] = joint_tau_;
     state_map["ee3Dof_fc"] = ee3Dof_fc_;
     state_map["ee6Dof_fc"] = ee6Dof_fc_;
 
@@ -40,7 +41,7 @@ void LeggedState::updateCustomState() {
         for (const auto& elem_name : custom_state.elements) {
             const Eigen::VectorXd& vec = state_map.at(elem_name);
             if (!custom_state.joint_order.empty() &&
-                (elem_name == "joint_pos" || elem_name == "joint_vel")) {
+                (elem_name == "joint_pos" || elem_name == "joint_vel" || elem_name == "joint_tau")) {
                 Eigen::VectorXd reordered;
                 reorder(joint_names_, vec, custom_state.joint_order, reordered);
                 custom_state.state_vec.segment(pos, reordered.size()) = reordered;
@@ -102,12 +103,14 @@ void LeggedState::init(int num_joints, std::vector<std::string> joint_names, vec
     base_ang_vel_B_.setZero();
     joint_pos_.setZero();
     joint_vel_.setZero();
+    joint_tau_.setZero();
 
     // 初始化关节向量大小
     num_joints_ = num_joints;
     joint_names_ = joint_names;
     joint_pos_ = VectorXd::Zero(num_joints_);
     joint_vel_ = VectorXd::Zero(num_joints_);
+    joint_tau_ = VectorXd::Zero(num_joints_);
 
     ee3Dof_names_ = ee3Dof_names;
     ee6Dof_names_ = ee6Dof_names;
@@ -124,6 +127,7 @@ void LeggedState::clear(){
     setBaseAngularVelocityW(Eigen::Vector3d::Zero());
     setJointPos(Eigen::VectorXd::Zero(num_joints_));
     setJointVel(Eigen::VectorXd::Zero(num_joints_));
+    setJointTau(Eigen::VectorXd::Zero(num_joints_));
 }
 
 void LeggedState::log(std::string prefix){
@@ -139,6 +143,7 @@ void LeggedState::log(std::string prefix){
     logger.update(prefix+"base_eulerZYX_dot", static_cast<Eigen::VectorXd>(base_eulerZYX_dot_));
     logger.update(prefix+"joint_pos", joint_pos_);
     logger.update(prefix+"joint_vel", joint_vel_);
+    logger.update(prefix+"joint_tau", joint_tau_);
     logger.update(prefix+"ee3Dof_fc", ee3Dof_fc_);
     logger.update(prefix+"ee6Dof_fc", ee6Dof_fc_);
 
@@ -250,6 +255,17 @@ void LeggedState::setJointVel(const Eigen::VectorXd& joint_vel, const std::vecto
     }
 }
 
+void LeggedState::setJointTau(const Eigen::VectorXd& joint_tau, const std::vector<std::string>& joint_order) {
+    if (joint_order.empty()) {
+        if (joint_tau.size() != joint_tau_.size()) {
+            throw std::runtime_error("[LeggedState] joint_tau size mismatch.");
+        }
+        joint_tau_ = joint_tau;
+    } else {
+        reorder(joint_order, joint_tau, joint_names_, joint_tau_);
+    }
+}
+
 void LeggedState::setEE3DofFc(const VectorXd& ee3Dof_fc, const vector<string>& ee3Dof_order) {
     if (ee3Dof_order.empty()) {
         if (ee3Dof_fc.size() != ee3Dof_fc_.size()) {
@@ -349,6 +365,8 @@ void LeggedState::setFromCustomState(const std::string& state_name, const Eigen:
             setJointPos(segment, custom_state.joint_order);
         } else if (elem_name == "joint_vel") {
             setJointVel(segment, custom_state.joint_order);
+        } else if (elem_name == "joint_tau") {
+            setJointTau(segment, custom_state.joint_order);
         } else if (elem_name == "ee3Dof_fc") {
             setEE3DofFc(segment, custom_state.ee3Dof_order);
         } else if (elem_name == "ee6Dof_fc") {

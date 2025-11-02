@@ -48,6 +48,7 @@ private:
     std::vector<std::string> joint_names_;
     Eigen::VectorXd joint_pos_;
     Eigen::VectorXd joint_vel_;
+    Eigen::VectorXd joint_tau_;
 
     // contact force
     vector<string> ee3Dof_names_;
@@ -125,6 +126,7 @@ public:
      *           "base_eulerZYX_dot",
      *           "joint_pos",
      *           "joint_vel",
+     *           "joint_tau",
      *           "ee3Dof_fc",
      *           "ee6Dof_fc"}
      */
@@ -229,6 +231,12 @@ public:
      * @param joint_vel 关节速度向量
      */
     void setJointVel(const Eigen::VectorXd& joint_vel, const std::vector<std::string>& joint_order = {});
+
+    /**
+     * @brief 设置关节力矩。
+     * @param joint_tau 关节力矩向量
+     */
+    void setJointTau(const Eigen::VectorXd& joint_tau, const std::vector<std::string>& joint_order = {});
     
     void setEE3DofFc(const VectorXd& ee3Dof_fc, const vector<string>& ee3Dof_order = {});
     void setEE6DofFc(const VectorXd& ee6Dof_fc, const vector<string>& ee6Dof_order = {});
@@ -260,6 +268,7 @@ public:
     const Eigen::Vector3d& base_eulerZYX_dot() const { return base_eulerZYX_dot_; }
     const Eigen::VectorXd& joint_pos() const { return joint_pos_; }
     const Eigen::VectorXd& joint_vel() const { return joint_vel_; }
+    const Eigen::VectorXd& joint_tau() const { return joint_tau_; }
     const Eigen::VectorXd& ee3Dof_fc() const { return ee3Dof_fc_; }
     const Eigen::VectorXd& ee6Dof_fc() const { return ee6Dof_fc_; }
 

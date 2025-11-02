@@ -68,9 +68,9 @@ swingLegTask:
   kd: 37
 
 torqueLimitsTask:
-  - 33.5     # HAA
-  - 33.5     # HFE
-  - 33.5     # KFE
+  - 23.7     # HAA
+  - 23.7     # HFE
+  - 45.43    # KFE
 
 frictionConeTask:
   frictionCoefficient: 0.3
