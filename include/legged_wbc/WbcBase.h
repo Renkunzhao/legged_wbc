@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include "legged_wbc/Yaml.h"
 #include "legged_wbc/LeggedState.h"
 #include "legged_wbc/Task.h"
 #include "legged_wbc/LeggedModel.h"

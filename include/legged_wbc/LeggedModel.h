@@ -51,6 +51,9 @@ private:
     std::vector<size_t> hipIds_;
 
 public:
+    void setVerbose() {verbose_ = true;}
+    void unsetVerbose() {verbose_ = false;}
+
     const std::string& baseType() const {return baseType_;}
     const pinocchio::Model& model() const {return model_;}
     pinocchio::Data& data() {return data_;}
@@ -72,6 +75,9 @@ public:
     const std::vector<size_t>& contact6DofIds() const {return  contact6DofIds_;}
     std::vector<Eigen::Vector3d> contact6DofPoss(const Eigen::VectorXd& q_pin);
     std::vector<Eigen::Vector3d> contact6DofVels(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin);
+
+    std::vector<Eigen::Vector3d> hipPoss(const Eigen::VectorXd& qBase);
+    std::vector<Eigen::Vector3d> hipPossProjected(const Eigen::VectorXd& qBase);
     
     Eigen::Vector3d com(const Eigen::VectorXd& q_pin) {return pinocchio::centerOfMass(model_, data_, q_pin);}
     Eigen::Vector3d vcom(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin) {

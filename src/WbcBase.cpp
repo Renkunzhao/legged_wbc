@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <pinocchio/fwd.hpp>  // forward declarations must be included first.
 
+#include "legged_wbc/Utils.h"
 #include "legged_wbc/Task.h"
 #include "legged_wbc/Types.h"
 #include "legged_wbc/Lie.h"

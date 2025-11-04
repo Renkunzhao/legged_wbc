@@ -1,4 +1,3 @@
-#include "legged_wbc/Yaml.h"
 #include "legged_wbc/LeggedModel.h"
 
 #include <cstddef>

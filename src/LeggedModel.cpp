@@ -1,8 +1,9 @@
 #include "legged_wbc/LeggedModel.h"
 #include "legged_wbc/Math.h"
 #include "legged_wbc/Lie.h"
-#include "legged_wbc/Yaml.h"
+#include "legged_wbc/Utils.h"
 #include <cstddef>
+#include <iostream>
 #include <pinocchio/parsers/urdf.hpp>
 #include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/math/rpy.hpp>
@@ -134,6 +135,21 @@ std::vector<Eigen::Vector3d> LeggedModel::contact6DofVels(const Eigen::VectorXd&
     return contact6DofVels;
 }
 
+std::vector<Eigen::Vector3d> LeggedModel::hipPoss(const Eigen::VectorXd& qBase){
+    Eigen::VectorXd q_pin = Eigen::VectorXd::Zero(model_.nq);
+    q_pin.head(nqBase_) = qBase;
+    pinocchio::forwardKinematics(model_, data_, q_pin);
+    std::vector<Eigen::Vector3d> hipPoss;
+    for (const auto& Id : hipIds_) hipPoss.push_back(data_.oMi[Id].translation());
+    return hipPoss;
+}
+
+std::vector<Eigen::Vector3d> LeggedModel::hipPossProjected(const Eigen::VectorXd& qBase){
+    auto hipPossProjected = hipPoss(qBase);
+    for (auto& Pos: hipPossProjected) Pos[2] = 0;
+    return hipPossProjected;
+}
+
 
 Eigen::MatrixXd LeggedModel::jacobian3Dof(Eigen::VectorXd q_pin){
     pinocchio::forwardKinematics(model_, data_, q_pin);
@@ -154,13 +170,7 @@ bool LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, Eigen::VectorXd& qJoint
     }
     
     if (contact3DofPoss.empty()) {
-        Eigen::VectorXd q_pin = Eigen::VectorXd::Zero(model_.nq);
-        q_pin.head(nqBase_) = qBase;
-        pinocchio::forwardKinematics(model_, data_, q_pin);
-        for (size_t i = 0; i < contact3DofNames_.size(); ++i) {
-            Eigen::Vector3d hip_world = data_.oMi[hipIds_[i]].translation();
-            contact3DofPoss.push_back(Eigen::Vector3d(hip_world.x(), hip_world.y(), 0));
-        }
+        contact3DofPoss = hipPossProjected(qBase);
         if (verbose_)
             std::cout << "[LeggedModel] Auto-generated default foot targets from hip projections." << std::endl;
     }
@@ -211,7 +221,15 @@ bool LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, Eigen::VectorXd& qJoint
             Eigen::VectorXd qj_min = q_min.tail(nJoints_);
 
             if ( ((qJoints.array() < qj_min.array()) || (qJoints.array() > qj_max.array())).any() ) {
-                std::cout << "[LeggedModel] inverseKine3Dof: joint pos out of range." << std::endl;
+                if (verbose_) {
+                    std::cout << "[LeggedModel] inverseKine3Dof: joint pos out of range." 
+                            << "\n qBase: " << qBase.transpose() << std::endl;
+                    for (size_t i=0;i<contact3DofNames_.size();++i) {
+                        std::cout << contact3DofNames_[i] << ": " << contact3DofPoss[i].transpose() << std::endl;
+                    }
+                    std::cout << "qJoints: " << qJoints.transpose() << std::endl;
+                    throw std::runtime_error("[LeggedModel] inverseKine3Dof: joint pos out of range.");
+                }
                 qJoints = qJoints.cwiseMax(qj_min).cwiseMin(qj_max);
                 return false;
             }
