@@ -1,5 +1,7 @@
+#include "legged_wbc/Yaml.h"
 #include "legged_wbc/LeggedModel.h"
 
+#include <cstddef>
 #include <iostream>
 #include <string>
 #include <yaml-cpp/yaml.h>
@@ -15,24 +17,19 @@ int main(int argc, char **argv)
     YAML::Node configNode = YAML::LoadFile(configFile);
 
     LeggedModel leggedModel;
-    leggedModel.loadUrdf(configNode["urdfPath"].as<std::string>(), "quaternion",
-                        configNode["baseName"].as<std::string>(), 
-                        configNode["contact3DofNames"].as<std::vector<std::string>>(), 
-                        configNode["contact6DofNames"].as<std::vector<std::string>>(),
-                        configNode["hipNames"].as<std::vector<std::string>>(),
-                        configNode["verbose"].as<bool>());
+    leggedModel.loadConfig(configNode);
 
     std::cout << "[LeggedModel]: " << "nDof " << leggedModel.nDof() << std::endl;
     std::cout << "[LeggedModel]: " << "nJoints " << leggedModel.nJoints() << std::endl;
     std::cout << "[LeggedModel]: " << "nContacts3Dof " << leggedModel.nContacts3Dof() << std::endl;
     std::cout << "[LeggedModel]: " << "nContacts6Dof " << leggedModel.nContacts6Dof() << std::endl;
 
+    for(size_t i=0;i<leggedModel.nContacts3Dof();i++) std::cout << "[LeggedModel]: " << leggedModel.contact3DofNames()[i] << ": " << leggedModel.contact3DofIds()[i] << std::endl;
+    for(size_t i=0;i<leggedModel.nContacts6Dof();i++) std::cout << "[LeggedModel]: " << leggedModel.contact6DofNames()[i] << ": " << leggedModel.contact6DofIds()[i] << std::endl;
+
     std::cout << "--- Position limits ---\n" 
                 << leggedModel.model().lowerPositionLimit.transpose() << "\n" 
                 << leggedModel.model().upperPositionLimit.transpose() << std::endl;
-
-    for(size_t i=0;i<leggedModel.nContacts3Dof();i++) std::cout << "[LeggedModel]: " << leggedModel.contact3DofNames()[i] << ": " << leggedModel.contact3DofIds()[i] << std::endl;
-    for(size_t i=0;i<leggedModel.nContacts6Dof();i++) std::cout << "[LeggedModel]: " << leggedModel.contact6DofNames()[i] << ": " << leggedModel.contact6DofIds()[i] << std::endl;
 
     Eigen::VectorXd q_rand = pinocchio::randomConfiguration(leggedModel.model());
     auto contact3DofPoss = leggedModel.contact3DofPoss(q_rand);
@@ -44,7 +41,7 @@ int main(int argc, char **argv)
     std::cout << "[LeggedModel]: " << "err " << (q_rand-q_ik).tail(leggedModel.nJoints()).norm() << std::endl;
 
     Eigen::VectorXd qBase(7);
-    qBase << 0, 0, 0.1, 0, 0, 0, 1;
+    qBase << 0, 0, 0.385, 0, 0, 0, 1;
     Eigen::VectorXd q_pin = leggedModel.inverseKine3Dof(qBase);
     std::cout << "[LeggedModel]: " << "q_pin " << q_pin.transpose() << std::endl;
 }

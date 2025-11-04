@@ -6,10 +6,12 @@
 #include <cstddef>
 #include <string>
 #include <vector>
+#include <yaml-cpp/yaml.h>
 #include <pinocchio/multibody/model.hpp>
 #include <pinocchio/multibody/data.hpp>
 #include <pinocchio/algorithm/center-of-mass.hpp>
 #include <pinocchio/algorithm/centroidal.hpp>
+#include <pinocchio/algorithm/rnea.hpp>
 
 /**
     * @brief LeggedModel 类，封装了 Pinocchio 模型的基本操作
@@ -59,16 +61,6 @@ public:
 
     size_t nqBase() const {return  nqBase_;}
 
-    Eigen::Vector3d com(const Eigen::VectorXd& q_pin) {return pinocchio::centerOfMass(model_, data_, q_pin);}
-    Eigen::Vector3d vcom(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin) {
-        pinocchio::centerOfMass(model_, data_, q_pin, v_pin);
-        return data_.vcom[0];
-    }
-    Eigen::VectorXd hcom(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin) {
-        pinocchio::computeCentroidalMomentum(model_, data_, q_pin, v_pin);
-        return data_.hg.toVector();
-    }
-
     size_t nContacts3Dof() const {return  nContacts3Dof_;}
     const std::vector<std::string>& contact3DofNames() const {return  contact3DofNames_;}
     const std::vector<size_t>& contact3DofIds() const {return  contact3DofIds_;}
@@ -81,19 +73,56 @@ public:
     std::vector<Eigen::Vector3d> contact6DofPoss(const Eigen::VectorXd& q_pin);
     std::vector<Eigen::Vector3d> contact6DofVels(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin);
     
+    Eigen::Vector3d com(const Eigen::VectorXd& q_pin) {return pinocchio::centerOfMass(model_, data_, q_pin);}
+    Eigen::Vector3d vcom(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin) {
+        pinocchio::centerOfMass(model_, data_, q_pin, v_pin);
+        return data_.vcom[0];
+    }
+    Eigen::VectorXd hcom(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin) {
+        pinocchio::computeCentroidalMomentum(model_, data_, q_pin, v_pin);
+        return data_.hg.toVector();
+    }
+
     /*
         stack jacobian of all 3Dof contact point, 3*nContacts3Dof_, nDof
     */
     Eigen::MatrixXd jacobian3Dof(Eigen::VectorXd q_pin);
 
-    Eigen::VectorXd inverseKine3Dof(Eigen::VectorXd qBase, std::vector<Eigen::Vector3d> contact3DofPoss = {});
+    Eigen::VectorXd inverseKine3Dof(Eigen::VectorXd qBase, std::vector<Eigen::Vector3d> contact3DofPoss = {}) {
+        Eigen::VectorXd q_pin(nqBase_ + nJoints_), qJoints(nJoints_);
+        inverseKine3Dof(qBase, qJoints, contact3DofPoss);
+        q_pin << qBase, qJoints;
+        return q_pin;
+    }
+    bool inverseKine3Dof(Eigen::VectorXd qBase, Eigen::VectorXd& qJoints, std::vector<Eigen::Vector3d> contact3DofPoss = {});
     Eigen::VectorXd inverseDiffKine3Dof(Eigen::VectorXd q_pin, Eigen::VectorXd vBase, std::vector<Eigen::Vector3d> contact3DofVels = {});
 
+    // Dynamics
+    Eigen::VectorXd g(const Eigen::VectorXd& q_pin) {
+        return pinocchio::computeGeneralizedGravity(model_, data_, q_pin);
+    };
+
+    Eigen::VectorXd nle(const Eigen::VectorXd& q_pin, const Eigen::VectorXd& v_pin) {
+        return pinocchio::nonLinearEffects(model_, data_, q_pin, v_pin);
+    };
+
+    void loadConfig(const YAML::Node& node);
     void loadUrdf(std::string urdfPath, std::string baseType, std::string baseName, 
         std::vector<std::string> contact3DofNames = {},
         std::vector<std::string> contact6DofNames = {},
         std::vector<std::string> hipNames = {}, 
         bool verbose = false);
+
+    void setJointLimits(Eigen::VectorXd qj_max, Eigen::VectorXd qj_min){
+        if (qj_max.size() != nJoints_ || qj_min.size() != nJoints_) {
+            throw std::runtime_error("[LeggedModel] setJointLimits: qMax/qMin vector size does not match nJoints_");
+        }
+
+        for(size_t i=0;i<nJoints_;++i){
+            model_.lowerPositionLimit[nqBase_ + i] = qj_min[i];
+            model_.upperPositionLimit[nqBase_ + i] = qj_max[i];
+        }
+    }
 
     // This function call createCustomState of leggedState to create a custom state (consistent with q,v used in LeggedModel) in leggedState 
     void creatPinoState(LeggedState& leggedState) const {

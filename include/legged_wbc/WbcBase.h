@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "legged_wbc/Yaml.h"
 #include "legged_wbc/LeggedState.h"
 #include "legged_wbc/Task.h"
 #include "legged_wbc/LeggedModel.h"
@@ -94,15 +95,6 @@ class WbcBase {
   std::array<bool, 4> contactFlag_;
   matrix_t MMeasured_, nleMeasured_, jMeasured_, djMeasured_;
   matrix_t AMeasured_, dAMeasured_;
-
-  // 将 YAML list 转换为 Eigen::VectorXd
-  inline Eigen::VectorXd yamlToEigenVector(const YAML::Node& node) {
-      if (!node || !node.IsSequence()) {
-          throw std::runtime_error("YAML node is not a valid sequence.");
-      }
-      std::vector<double> vec = node.as<std::vector<double>>();
-      return Eigen::Map<Eigen::VectorXd>(vec.data(), vec.size());
-  }
 
   // Task Parameters:
   bool verbose_;

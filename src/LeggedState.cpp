@@ -128,6 +128,13 @@ void LeggedState::clear(){
     setJointPos(Eigen::VectorXd::Zero(num_joints_));
     setJointVel(Eigen::VectorXd::Zero(num_joints_));
     setJointTau(Eigen::VectorXd::Zero(num_joints_));
+    setEE3DofFc(Eigen::VectorXd::Zero(ee3Dof_names_.size()*3));
+    setEE6DofFc(Eigen::VectorXd::Zero(ee6Dof_names_.size()*6));
+    setComPos(Eigen::Vector3d::Zero());
+    setComVelW(Eigen::Vector3d::Zero());
+    setComAccW(Eigen::Vector3d::Zero());
+    setComLinMomW(Eigen::Vector3d::Zero());
+    setComAngMomW(Eigen::Vector3d::Zero());
 }
 
 void LeggedState::log(std::string prefix){

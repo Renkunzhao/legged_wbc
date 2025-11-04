@@ -1,12 +1,29 @@
 #include "legged_wbc/LeggedModel.h"
 #include "legged_wbc/Math.h"
 #include "legged_wbc/Lie.h"
+#include "legged_wbc/Yaml.h"
 #include <cstddef>
 #include <pinocchio/parsers/urdf.hpp>
 #include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/math/rpy.hpp>
 
 using namespace Lie;
+
+void LeggedModel::loadConfig(const YAML::Node& node){
+    this->loadUrdf(node["urdfPath"].as<std::string>(), "quaternion",
+                    node["baseName"].as<std::string>(), 
+                    node["contact3DofNames"].as<std::vector<std::string>>(), 
+                    node["contact6DofNames"].as<std::vector<std::string>>(),
+                    node["hipNames"].as<std::vector<std::string>>(),
+                    node["verbose"].as<bool>());
+    Eigen::VectorXd qj_max(12), qj_min(12);
+    for (size_t i=0; i<4; ++i) {
+        qj_min.segment(3*i, 3) = yamlToEigenVector(node["jointLimits"]["min"]);
+        qj_max.segment(3*i, 3) = yamlToEigenVector(node["jointLimits"]["max"]);
+    }
+    this->setJointLimits(qj_max, qj_min);
+}
+
 
 void LeggedModel::loadUrdf(std::string urdfPath, std::string baseType, std::string baseName,
                            std::vector<std::string> contact3DofNames, 
@@ -75,12 +92,6 @@ void LeggedModel::loadUrdf(std::string urdfPath, std::string baseType, std::stri
         model_.upperPositionLimit.segment<3>(3).setConstant(M_PI);
     }
 
-    // 设置关节限制 避开奇异点
-    for (int i=0;i<contact3DofNames.size();i++) {
-        model_.lowerPositionLimit[nqBase_ + 3*i + 1] = -0.2094;
-        model_.upperPositionLimit[nqBase_ + 3*i + 1] = 1.9897;
-    }
-
     verbose_ = verbose;
     if (true) {
         std::cout << "[LeggedModel] nDof: " << nDof() << std::endl; 
@@ -137,7 +148,7 @@ Eigen::MatrixXd LeggedModel::jacobian3Dof(Eigen::VectorXd q_pin){
     return jac;
 }
 
-Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, std::vector<Eigen::Vector3d> contact3DofPoss){
+bool LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, Eigen::VectorXd& qJoints, std::vector<Eigen::Vector3d> contact3DofPoss){
     if (qBase.size() != nqBase_) {
         throw std::runtime_error("Base pose vector size does not match nqBase_");
     }
@@ -176,7 +187,9 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, std::vector<
 
     int max_iters = 1000;
     double tol = 1e-4, dt = 0.1, damping = 1e-6;
-    Eigen::VectorXd q = (model_.upperPositionLimit + model_.lowerPositionLimit)/2;
+    Eigen::VectorXd q_max = model_.upperPositionLimit;
+    Eigen::VectorXd q_min = model_.lowerPositionLimit;
+    Eigen::VectorXd q = (q_min + q_max)/2;
     if (verbose_) std::cout << "[LeggedModel] IK start from " << q.transpose() << std::endl;
     // err = [err_foot_1^T, err_foot_2^T, ...]^T
     Eigen::VectorXd err = Eigen::VectorXd::Zero(nContacts3Dof_*3);
@@ -193,8 +206,17 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, std::vector<
 
         if (err.norm() < tol) {
             if (verbose_) std::cout << "[LeggedModel] IK Converged in " << i << " iterations. Final error: " << err.norm() << std::endl;
-            q.head(nqBase_) = qBase;
-            return q;
+            qJoints = q.tail(nJoints_);
+            Eigen::VectorXd qj_max = q_max.tail(nJoints_);
+            Eigen::VectorXd qj_min = q_min.tail(nJoints_);
+
+            if ( ((qJoints.array() < qj_min.array()) || (qJoints.array() > qj_max.array())).any() ) {
+                std::cout << "[LeggedModel] inverseKine3Dof: joint pos out of range." << std::endl;
+                qJoints = qJoints.cwiseMax(qj_min).cwiseMin(qj_max);
+                return false;
+            }
+
+            return true;
         }
         
         Jj = jacobian3Dof(q).rightCols(nJoints_);
@@ -208,6 +230,7 @@ Eigen::VectorXd LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, std::vector<
             angle = std::atan2(std::sin(angle), std::cos(angle));
         }
     }
+    return false;
 }
 
 // \dot{q}_j = J_j^+(v - J_b \dot{q}_b)

@@ -30,7 +30,7 @@ private:
 
     // 浮动基姿态（三种表示形式 ，始终保持同步)
     Eigen::Matrix3d base_R_;
-    Eigen::Quaterniond base_quat_;
+    Eigen::Quaterniond base_quat_;  // xywz for coeffs, wxyz for construction
     Eigen::Vector3d base_eulerZYX_; // (yaw, pitch, roll) ZYX 欧拉角
 
     // 浮动基线速度

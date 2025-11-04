@@ -31,6 +31,16 @@ hipNames:
   - RL_thigh_joint
   - RR_thigh_joint
 
+jointLimits:
+  min:
+    - -1.0472
+    - -0.2094
+    - -2.7227
+  max:
+    - 1.0472
+    - 1.9897
+    - -0.83776
+
 torqueLimitsTask:
   - 23.7     # HAA
   - 23.7     # HFE
