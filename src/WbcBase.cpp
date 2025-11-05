@@ -233,7 +233,7 @@ Task WbcBase::formulateBaseAccelTaskPD() {
   Eigen::Vector3d w_des = vDesired_.segment(3,3);
   Eigen::Vector3d w = vMeasured_.segment(3,3);
 
-  vel_error << vDesired_.head(3) - vMeasured_.head(3),
+  vel_error << R.transpose()*R_des*vDesired_.head(3) - vMeasured_.head(3),
                R.transpose()*R_des*w_des - w; 
   b = wbcParam_.baseAccelKp_.asDiagonal() * pos_error + wbcParam_.baseAccelKd_.asDiagonal() * vel_error;
 

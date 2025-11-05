@@ -7,14 +7,14 @@ baseAccelTask:
     - 00.0       # p_base_z
     - 00.0       # x
     - 00.0       # y
-    - 400.0      # z
+    - 00.0      # z
   baseAcc_kd:
     - 0.0      # vx
     - 0.0      # vy
     - 0.0      # vz
     - 0.0      # wx
     - 0.0      # wy
-    - 20.0     # wz
+    - 0.0     # wz
 
 comTask:
   com_kp:
@@ -25,12 +25,12 @@ comTask:
     - 0.0       # y
     - 0.0       # z
   com_kd:
-    - 600.0     # vx
-    - 3.0       # vy
+    - 100.0     # vx
+    - 10.0       # vy
     - 300.0     # vz
-    - 1000.0    # wx
-    - 2000.0    # wy
-    - 0.0       # wz
+    - 100.0     # wx
+    - 200.0     # wy
+    - 100.0     # wz
 
 swingLegTask:
   kp: 350
@@ -47,9 +47,9 @@ weight:
   com:  
     - 0.1
     - 0.1
-    - 0.1
-    - 1.0
-    - 1.0
+    - 0.5
+    - 5.0
+    - 5.0
     - 1.0
   contactForce: 
     - 0.0
