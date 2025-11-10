@@ -94,13 +94,13 @@ public:
     */
     Eigen::MatrixXd jacobian3Dof(Eigen::VectorXd q_pin);
 
-    Eigen::VectorXd inverseKine3Dof(Eigen::VectorXd qBase, std::vector<Eigen::Vector3d> contact3DofPoss = {}) {
+    Eigen::VectorXd inverseKine3Dof(Eigen::VectorXd qBase, VectorXd qJoints0 = VectorXd(), std::vector<Eigen::Vector3d> contact3DofPoss = {}) {
         Eigen::VectorXd q_pin(nqBase_ + nJoints_), qJoints(nJoints_);
-        inverseKine3Dof(qBase, qJoints, contact3DofPoss);
+        inverseKine3Dof(qBase, qJoints, qJoints0, contact3DofPoss);
         q_pin << qBase, qJoints;
         return q_pin;
     }
-    bool inverseKine3Dof(Eigen::VectorXd qBase, Eigen::VectorXd& qJoints, std::vector<Eigen::Vector3d> contact3DofPoss = {});
+    bool inverseKine3Dof(VectorXd qBase, VectorXd& qJoints, VectorXd qJoints0 = VectorXd(), vector<Vector3d> contact3DofPoss = {});
     Eigen::VectorXd inverseDiffKine3Dof(Eigen::VectorXd q_pin, Eigen::VectorXd vBase, std::vector<Eigen::Vector3d> contact3DofVels = {});
 
     // Dynamics

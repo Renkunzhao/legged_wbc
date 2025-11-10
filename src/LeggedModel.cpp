@@ -164,11 +164,19 @@ Eigen::MatrixXd LeggedModel::jacobian3Dof(Eigen::VectorXd q_pin){
     return jac;
 }
 
-bool LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, Eigen::VectorXd& qJoints, std::vector<Eigen::Vector3d> contact3DofPoss){
+bool LeggedModel::inverseKine3Dof(VectorXd qBase, VectorXd& qJoints, VectorXd qJoints0, vector<Vector3d> contact3DofPoss) {
     if (qBase.size() != nqBase_) {
         throw std::runtime_error("Base pose vector size does not match nqBase_");
     }
-    
+
+    if (qJoints0.size() == 0) {
+        // No init qJoints0
+        if (verbose_)
+            std::cout << "[LeggedModel] No initial guess provided. Using default guess.\n";
+        qJoints0 = (model_.lowerPositionLimit + model_.upperPositionLimit)/2;
+        qJoints0 = qJoints0.tail(nJoints_);
+    }
+
     if (contact3DofPoss.empty()) {
         contact3DofPoss = hipPossProjected(qBase);
         if (verbose_)
@@ -179,14 +187,17 @@ bool LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, Eigen::VectorXd& qJoint
         throw std::runtime_error("Mismatch in number of target positions and foot names");
     }
 
+    VectorXd qBase0(nqBase_);
     // TODO don't use 
     Eigen::Matrix3d R;
     if (baseType_ == "quaternion") {
         // qBase xyzw, quat_ToR require wxyz
         R = quat_ToR(quat_wxyz(qBase.tail(4)));
+        qBase0 << 0, 0, 0, 0, 0, 0, 1;
     }
     else if(baseType_ == "eulerZYX") {
         R = pinocchio::rpy::rpyToMatrix(qBase.tail(3).reverse());
+        qBase0 << 0, 0, 0, 0, 0, 0;
     }
 
     // contact3DofPoss is feet position in world frame, get foot pos relative to base in base frame using R^t * (contact3DofPoss - base_pos)
@@ -197,9 +208,8 @@ bool LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, Eigen::VectorXd& qJoint
 
     int max_iters = 1000;
     double tol = 1e-4, dt = 0.1, damping = 1e-6;
-    Eigen::VectorXd q_max = model_.upperPositionLimit;
-    Eigen::VectorXd q_min = model_.lowerPositionLimit;
-    Eigen::VectorXd q = (q_min + q_max)/2;
+    Eigen::VectorXd q(model_.nq); 
+    q << qBase0, qJoints0;
     if (verbose_) std::cout << "[LeggedModel] IK start from " << q.transpose() << std::endl;
     // err = [err_foot_1^T, err_foot_2^T, ...]^T
     Eigen::VectorXd err = Eigen::VectorXd::Zero(nContacts3Dof_*3);
@@ -217,8 +227,8 @@ bool LeggedModel::inverseKine3Dof(Eigen::VectorXd qBase, Eigen::VectorXd& qJoint
         if (err.norm() < tol) {
             if (verbose_) std::cout << "[LeggedModel] IK Converged in " << i << " iterations. Final error: " << err.norm() << std::endl;
             qJoints = q.tail(nJoints_);
-            Eigen::VectorXd qj_max = q_max.tail(nJoints_);
-            Eigen::VectorXd qj_min = q_min.tail(nJoints_);
+            Eigen::VectorXd qj_max = model_.upperPositionLimit.tail(nJoints_);
+            Eigen::VectorXd qj_min = model_.lowerPositionLimit.tail(nJoints_);
 
             if ( ((qJoints.array() < qj_min.array()) || (qJoints.array() > qj_max.array())).any() ) {
                 if (verbose_) {
