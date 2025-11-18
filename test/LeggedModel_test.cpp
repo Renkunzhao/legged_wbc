@@ -35,7 +35,7 @@ int main(int argc, char **argv)
     std::cout << "[LeggedModel]: " << "q_rand " << q_rand.transpose() << std::endl;
     for(size_t i=0;i<leggedModel.nContacts3Dof();i++) std::cout << "[LeggedModel]: " << leggedModel.contact3DofNames()[i] << ": " << contact3DofPoss[i].transpose() << std::endl;
 
-    auto q_ik = leggedModel.inverseKine3Dof(q_rand.head(leggedModel.nqBase()), contact3DofPoss);
+    auto q_ik = leggedModel.inverseKine3Dof(q_rand.head(leggedModel.nqBase()), VectorXd(), contact3DofPoss);
     std::cout << "[LeggedModel]: " << "q_ik " << q_ik.transpose() << std::endl;
     std::cout << "[LeggedModel]: " << "err " << (q_rand-q_ik).tail(leggedModel.nJoints()).norm() << std::endl;
 
