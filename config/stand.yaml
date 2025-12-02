@@ -1,5 +1,39 @@
 motionName: stand
 
+constraintList:
+  - floatingBaseEom
+  - torqueLimits
+  - frictionCone
+  # - noContactMotion
+  # - noSlipXY
+
+weight:
+  baseAccel: 
+    - 1.1
+    - 1.1
+    - 1.1
+    - 1.1
+    - 1.1
+    - 1.1
+  com:  
+    - 1
+    - 1
+    - 1
+    - 1.0
+    - 1.0
+    - 1.0
+  contactForce: 
+    - 0.0
+    - 0.0
+    - 0.0
+  SumFz: 0.25
+  swingLeg: 0
+  jointTorque: 0
+  noContactMotion:
+    - 1.0
+    - 1.0
+    - 1.0
+
 baseAccelTask:
   baseAcc_kp:
     - 00.0       # p_base_x
@@ -18,16 +52,16 @@ baseAccelTask:
 
 comTask:
   com_kp:
-    - 9.0       # p_base_x
-    - 9.0       # p_base_y
-    - 9.0       # p_base_z
+    - 400.0       # p_base_x
+    - 400.0       # p_base_y
+    - 400.0       # p_base_z
     - 0.0       # x
     - 0.0       # y
     - 0.0       # z
   com_kd:
-    - 3.0       # vx
-    - 3.0       # vy
-    - 3.0       # vz
+    - 20.0       # vx
+    - 20.0       # vy
+    - 20.0       # vz
     - 0.0       # wx
     - 0.0       # wy
     - 0.0       # wz
@@ -35,29 +69,6 @@ comTask:
 swingLegTask:
   kp: 350
   kd: 37
-
-weight:
-  baseAccel: 
-    - 1.1
-    - 1.1
-    - 1.1
-    - 1.1
-    - 1.1
-    - 1.1
-  com:  
-    - 0.1
-    - 0.1
-    - 0.1
-    - 1.0
-    - 1.0
-    - 1.0
-  contactForce: 
-    - 0.0
-    - 0.0
-    - 0.0
-  SumFz: 0.25
-  swingLeg: 0
-  jointTorque: 0
 
 # joint PD
 jointKp: 10

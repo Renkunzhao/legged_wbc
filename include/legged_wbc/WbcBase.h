@@ -11,19 +11,24 @@
 
 #include <array>
 #include <stdexcept>
+#include <string>
 #include <yaml-cpp/yaml.h>
+
+using namespace std;
 
 namespace legged {
 
 class WbcParameters {
   public:
-  std::string motionName_;
+  string motionName_;
+
+  vector<string> constraintList_;
 
   vector_t baseAccelKp_, baseAccelKd_, comKp_, comKd_;
   scalar_t swingKp_, swingKd_;
   scalar_t jointKp_, jointKd_;
 
-  Eigen::VectorXd weightBaseAccel_, weightCom_, weightContactForce_;
+  Eigen::VectorXd weightBaseAccel_, weightCom_, weightContactForce_, weightNoContactMotion_;
   scalar_t weightSumFz_, weightSwingLeg_, weightJointTorque_;
 };
 
@@ -74,6 +79,7 @@ class WbcBase {
   Task formulateFloatingBaseEomTask();
   Task formulateTorqueLimitsTask();
   Task formulateNoContactMotionTask();
+  Task formulateNoSlipXYTask();
   Task formulateFrictionConeTask();
   Task formulateBaseAccelTaskPD();
   Task formulateComTask();
@@ -105,7 +111,7 @@ class WbcBase {
   WbcParameters wbcParam_;
 
   // Task
-  Task swingLegTask_, baseAccTask_, comTask_, contactForceTask_, SumFzTask_, jointTorqueTask_;
+  Task swingLegTask_, baseAccTask_, comTask_, contactForceTask_, SumFzTask_, jointTorqueTask_, noContactMotionTask_;
 };
 
 }  // namespace legged

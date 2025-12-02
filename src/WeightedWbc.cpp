@@ -149,7 +149,21 @@ vector_t WeightedWbc::solveWithOSQP(const Eigen::MatrixXd& H_in,
 }
 
 Task WeightedWbc::formulateConstraints() {
-  return formulateFloatingBaseEomTask() + formulateTorqueLimitsTask() + formulateFrictionConeTask() + formulateNoContactMotionTask();
+  Task totalConstraints;
+  for (const auto& constraintName : wbcParam_.constraintList_) {
+    if (constraintName == "floatingBaseEom") {
+      totalConstraints = totalConstraints + formulateFloatingBaseEomTask();
+    } else if (constraintName == "torqueLimits") {
+      totalConstraints = totalConstraints + formulateTorqueLimitsTask();
+    } else if (constraintName == "frictionCone") {
+      totalConstraints = totalConstraints + formulateFrictionConeTask();
+    } else if (constraintName == "noContactMotion") {
+      totalConstraints = totalConstraints + formulateNoContactMotionTask();
+    } else if (constraintName == "noSlipXY") {
+      totalConstraints = totalConstraints + formulateNoSlipXYTask();
+    }
+  }
+  return totalConstraints;
 }
 
 Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
@@ -159,8 +173,9 @@ Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
     //       formulateContactForceTask() * wbcParam_.weightContactForce_;
   } else if (method == "pd") {
     return formulateSwingLegTask() * wbcParam_.weightSwingLeg_ + formulateBaseAccelTaskPD() * wbcParam_.weightBaseAccel_ + formulateComTask() * wbcParam_.weightCom_ +
-      formulateContactForceTask() * wbcParam_.weightContactForce_ + formulateSumFzTask() * wbcParam_.weightSumFz_ +  
-      formulateJointTorqueTask() * wbcParam_.weightJointTorque_;
+      formulateContactForceTask() * wbcParam_.weightContactForce_ + formulateNoContactMotionTask() * wbcParam_.weightNoContactMotion_
+      + formulateSumFzTask() * wbcParam_.weightSumFz_ 
+      + formulateJointTorqueTask() * wbcParam_.weightJointTorque_;
   }
 }
 
@@ -191,6 +206,7 @@ void WeightedWbc::log(const vector_t& x){
     logger.update("contactForceCost", computeCost(contactForceTask_, x, wbcParam_.weightContactForce_));
     logger.update("sumFzCost", computeCost(SumFzTask_, x, wbcParam_.weightSumFz_));
     logger.update("jointTorqueCost", computeCost(jointTorqueTask_, x, wbcParam_.weightJointTorque_));
+    logger.update("noContactMotionCost", computeCost(noContactMotionTask_, x, wbcParam_.weightNoContactMotion_));
 }
 
 }  // namespace legged

@@ -1,5 +1,39 @@
 motionName: jump
 
+constraintList:
+  - floatingBaseEom
+  - torqueLimits
+  - frictionCone
+  # - noContactMotion
+  # - noSlipXY
+
+weight:
+  baseAccel: 
+    - 1.1
+    - 1.1
+    - 1.1
+    - 1.1
+    - 1.1
+    - 1.1
+  com:  
+    - 0.1
+    - 0.1
+    - 0.5
+    - 5.0
+    - 5.0
+    - 1.0
+  contactForce: 
+    - 0.0
+    - 0.0
+    - 0.0
+  SumFz: 0.25
+  swingLeg: 0
+  jointTorque: 0
+  noContactMotion:
+    - 1.0
+    - 1.0
+    - 1.0
+
 baseAccelTask:
   baseAcc_kp:
     - 00.0       # p_base_x
@@ -35,29 +69,6 @@ comTask:
 swingLegTask:
   kp: 350
   kd: 37
-
-weight:
-  baseAccel: 
-    - 1.1
-    - 1.1
-    - 1.1
-    - 1.1
-    - 1.1
-    - 1.1
-  com:  
-    - 0.1
-    - 0.1
-    - 0.5
-    - 5.0
-    - 5.0
-    - 1.0
-  contactForce: 
-    - 0.0
-    - 0.0
-    - 0.0
-  SumFz: 0.25
-  swingLeg: 0
-  jointTorque: 0
 
 # joint PD
 jointKp: 10

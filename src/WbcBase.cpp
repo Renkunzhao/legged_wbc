@@ -170,6 +170,31 @@ Task WbcBase::formulateNoContactMotionTask() {
     std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
   }
   
+  noContactMotionTask_ = Task(a, b, matrix_t(), vector_t());
+  return noContactMotionTask_;
+}
+
+Task WbcBase::formulateNoSlipXYTask() {
+  matrix_t a(2 * numContacts_, numDecisionVars_);
+  vector_t b(a.rows());
+  a.setZero();
+  b.setZero();
+  size_t j = 0;
+  for (size_t i = 0; i < leggedModel_.nContacts3Dof(); i++) {
+    if (contactFlag_[i]) {
+      a.block(2 * j, 0, 2, leggedModel_.nDof()) = jMeasured_.block(3 * i, 0, 2, leggedModel_.nDof());
+      b.segment(2 * j, 2) = -djMeasured_.block(3 * i, 0, 2, leggedModel_.nDof()) * vMeasured_;
+      j++;
+    }
+  }
+
+  if(verbose_) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] NoSlipXYTask " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+  }
+  
   return {a, b, matrix_t(), vector_t()};
 }
 
@@ -380,6 +405,8 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
 
     param.motionName_ = cfg["motionName"].as<std::string>();
 
+    param.constraintList_ = cfg["constraintList"].as<vector<string>>();
+
     // === Base Acceleration Task ===
     param.baseAccelKp_ = yamlToEigenVector(cfg["baseAccelTask"]["baseAcc_kp"]);
     param.baseAccelKd_ = yamlToEigenVector(cfg["baseAccelTask"]["baseAcc_kd"]);
@@ -402,8 +429,10 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
         param.weightBaseAccel_    = yamlToEigenVector(w["baseAccel"]);
         param.weightCom_ = yamlToEigenVector(w["com"]);
         param.weightContactForce_ = vector_t::Zero(3*leggedModel_.nContacts3Dof());
+        param.weightNoContactMotion_ = vector_t::Zero(3*leggedModel_.nContacts3Dof());
         for (size_t i=0; i<leggedModel_.nContacts3Dof(); ++i) {
           param.weightContactForce_.segment(3*i,3) = yamlToEigenVector(w["contactForce"]);
+          param.weightNoContactMotion_.segment(3*i,3) = yamlToEigenVector(w["noContactMotion"]);
         }
         param.weightSumFz_        = w["SumFz"].as<double>();
         param.weightSwingLeg_     = w["swingLeg"].as<double>();
@@ -428,6 +457,7 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
             std::cout << "[WbcBase] weight.BaseAccel: " << param.weightBaseAccel_.transpose() << std::endl;
             std::cout << "[WbcBase] weight.Com:  " << param.weightCom_.transpose() << std::endl;
             std::cout << "[WeightedWbc] weightContactForce: " << param.weightContactForce_.transpose() << std::endl;
+            std::cout << "[WeightedWbc] weightNoContactMotion: " << param.weightNoContactMotion_.transpose() << std::endl;
             std::cout << "[WeightedWbc] weightSumFz: " << param.weightSumFz_ << std::endl;
             std::cout << "[WeightedWbc] weightSwingLeg: " << param.weightSwingLeg_ << std::endl;
             std::cout << "[WeightedWbc] weightJointTorque: " << param.weightJointTorque_ << std::endl;
