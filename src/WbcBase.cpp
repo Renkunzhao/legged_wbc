@@ -29,17 +29,19 @@ using namespace Lie;
 
 namespace legged {
 
-vector_t WbcBase::update(LeggedState des_state, LeggedState real_state, std::array<bool, 4> contactFlag,
+vector_t WbcBase::update(LeggedState des_state, LeggedState real_state,
                          scalar_t /*period*/ , std::string /*method*/) {
-  if(verbose_) {
-    std::cout << "[WbcBase] contactFlag:\n" << contactFlag[0] << " " << contactFlag[1] << " " << contactFlag[2] << " " << contactFlag[3] << std::endl;
-  }
+  counter_++;
 
-  contactFlag_ = contactFlag;
+  des_state_ = des_state; 
+  real_state_ = real_state;
+
+  contactFlag_ = real_state.ee3Dof_contact(leggedModel_.contact3DofNames());
   numContacts_ = std::accumulate(contactFlag_.begin(), contactFlag_.end(), 0);
 
-  des_state_ = des_state;
-  real_state_ = real_state;
+  if(verbose_) {
+    std::cout << "[WbcBase] contactFlag:" << contactFlag_[0] << " " << contactFlag_[1] << " " << contactFlag_[2] << " " << contactFlag_[3] << std::endl;
+  }
 
   qDesired_ = des_state_.custom_state("q_pin");
   vDesired_ = des_state_.custom_state("v_pin");
@@ -305,8 +307,8 @@ Task WbcBase::formulateComTask() {
 Task WbcBase::formulateSwingLegTask() {
   std::vector<Eigen::Vector3d> posMeasured = leggedModel_.contact3DofPoss(qMeasured_);
   std::vector<Eigen::Vector3d> velMeasured = leggedModel_.contact3DofVels(qMeasured_, vMeasured_);
-  std::vector<Eigen::Vector3d> posDesired = leggedModel_.contact3DofPoss(qDesired_);
-  std::vector<Eigen::Vector3d> velDesired = leggedModel_.contact3DofVels(qDesired_, vDesired_);
+  VectorXd eePos_des = des_state_.custom_state("eePos_pin");
+  VectorXd eeVel_des = des_state_.custom_state("eeVel_pin");
 
   matrix_t a(3 * (leggedModel_.nContacts3Dof() - numContacts_), numDecisionVars_);
   vector_t b(a.rows());
@@ -315,14 +317,19 @@ Task WbcBase::formulateSwingLegTask() {
   size_t j = 0;
   for (size_t i = 0; i < leggedModel_.nContacts3Dof(); ++i) {
     if (!contactFlag_[i]) {
-      Eigen::Vector3d accel = wbcParam_.swingKp_ * (posDesired[i] - posMeasured[i]) + wbcParam_.swingKd_ * (velDesired[i] - velMeasured[i]);
+      Eigen::Vector3d accel = wbcParam_.swingKp_ * (eePos_des.segment<3>(3*i) - posMeasured[i]) + wbcParam_.swingKd_ * (eeVel_des.segment<3>(3*i) - velMeasured[i]);
       a.block(3 * j, 0, 3, leggedModel_.nDof()) = jMeasured_.block(3 * i, 0, 3, leggedModel_.nDof());
       b.segment(3 * j, 3) = accel - djMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) * vMeasured_;
       j++;
+      if(verbose_ && (counter_ % logInterval_ == 0)) {
+        std::cout << "[WbcBase] eePos_des:  " << eePos_des.transpose() << std::endl;
+        std::cout << "[WbcBase] eePos_real: " << concatVectors(posMeasured).transpose() << std::endl;
+        std::cout << "[WbcBase] accel" << accel.transpose() << std::endl;
+      }
     }
   }
 
-  if(verbose_) {
+  if(verbose_ && (counter_ % logInterval_ == 0)) {
     std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
     std::cout << "[WbcBase] SwingLegTask " << std::endl;
     std::cout << "[WbcBase] a:\n" << a << std::endl;
@@ -375,7 +382,6 @@ Task WbcBase::formulateSumFzTask(){
   SumFzTask_ = Task(a, b, matrix_t(), vector_t());
   return SumFzTask_;
 }
-
 
 Task WbcBase::formulateJointTorqueTask() {
   matrix_t a = matrix_t::Zero(leggedModel_.nJoints(), numDecisionVars_);
@@ -485,6 +491,7 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
     YAML::Node configNode = YAML::LoadFile(configFile);
 
     verbose_ = configNode["verbose"].as<bool>();
+    logInterval_ = configNode["logInterval"].as<size_t>();
 
     // === General robot setup ===
     leggedModel_.loadUrdf(configNode["urdfPath"].as<std::string>(), "quaternion",

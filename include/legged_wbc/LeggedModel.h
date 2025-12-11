@@ -136,12 +136,13 @@ public:
         if (baseType_ == "quaternion") {
             leggedState.createCustomState("q_pin", {"base_pos", "base_quat", "joint_pos"}, jointNames_);
             leggedState.createCustomState("v_pin", {"base_lin_vel_B", "base_ang_vel_B", "joint_vel"}, jointNames_);
-            leggedState.createCustomState("f_pin", {"ee3Dof_fc", "ee6Dof_fc"}, contact3DofNames_, contact6DofNames_);
         } else if (baseType_ == "eulerZYX") {
             leggedState.createCustomState("q_pin", {"base_pos", "base_eulerZYX", "joint_pos"}, jointNames_);
             leggedState.createCustomState("v_pin", {"base_lin_vel_W", "base_eulerZYX_dot", "joint_vel"}, jointNames_);
-            leggedState.createCustomState("f_pin", {"ee3Dof_fc", "ee6Dof_fc"}, contact3DofNames_, contact6DofNames_);
         }
+        leggedState.createCustomState("eePos_pin", {"ee3Dof_pos", "ee6Dof_pos"}, {}, contact3DofNames_, contact6DofNames_);
+        leggedState.createCustomState("eeVel_pin", {"ee3Dof_vel", "ee6Dof_vel"}, {}, contact3DofNames_, contact6DofNames_);
+        leggedState.createCustomState("f_pin", {"ee3Dof_fc", "ee6Dof_fc"}, {}, contact3DofNames_, contact6DofNames_);
     }
 };
 

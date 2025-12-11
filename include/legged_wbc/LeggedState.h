@@ -51,8 +51,14 @@ private:
 
     // contact force
     vector<string> ee3Dof_names_;
-    vector<string> ee6Dof_names_;
+    vector<bool> ee3Dof_contact_;
+    VectorXd ee3Dof_pos_;
+    VectorXd ee3Dof_vel_;
     VectorXd ee3Dof_fc_;
+    vector<string> ee6Dof_names_;
+    vector<bool> ee6Dof_contact_;
+    VectorXd ee6Dof_pos_;
+    VectorXd ee6Dof_vel_;
     VectorXd ee6Dof_fc_;
 
     Eigen::Vector3d com_pos_;
@@ -132,7 +138,11 @@ public:
      *           "joint_pos",
      *           "joint_vel",
      *           "joint_tau",
+     *           "ee3Dof_pos",
+     *           "ee3Dof_vel",
      *           "ee3Dof_fc",
+     *           "ee6Dof_pos",
+     *           "ee6Dof_vel",
      *           "ee6Dof_fc"}
      */
     void createCustomState(const std::string& state_name, const std::vector<std::string>& state_elements, 
@@ -243,7 +253,13 @@ public:
      */
     void setJointTau(const Eigen::VectorXd& joint_tau, const std::vector<std::string>& joint_order = {});
     
+    void setEE3DofContact(const vector<bool>& ee3Dof_contact, const vector<string>& ee3Dof_order = {});
+    void setEE3DofPos(const VectorXd& ee3Dof_pos, const vector<string>& ee3Dof_order = {});
+    void setEE3DofVel(const VectorXd& ee3Dof_vel, const vector<string>& ee3Dof_order = {});
     void setEE3DofFc(const VectorXd& ee3Dof_fc, const vector<string>& ee3Dof_order = {});
+    void setEE6DofContact(const vector<bool>& ee6Dof_contact, const vector<string>& ee6Dof_order = {});
+    void setEE6DofPos(const VectorXd& ee6Dof_pos, const vector<string>& ee6Dof_order = {});
+    void setEE6DofVel(const VectorXd& ee6Dof_vel, const vector<string>& ee6Dof_order = {});
     void setEE6DofFc(const VectorXd& ee6Dof_fc, const vector<string>& ee6Dof_order = {});
 
     void setComPos(const Eigen::Vector3d& com_pos) { com_pos_ = com_pos; }
@@ -280,7 +296,13 @@ public:
     const Eigen::VectorXd& joint_pos() const { return joint_pos_; }
     const Eigen::VectorXd& joint_vel() const { return joint_vel_; }
     const Eigen::VectorXd& joint_tau() const { return joint_tau_; }
+    vector<bool> ee3Dof_contact(const vector<string>& ee3Dof_order) const;
+    vector<bool> ee6Dof_contact(const vector<string>& ee6Dof_order) const;
+    const Eigen::VectorXd& ee3Dof_pos() const { return ee3Dof_pos_; }
+    const Eigen::VectorXd& ee3Dof_vel() const { return ee3Dof_vel_; }
     const Eigen::VectorXd& ee3Dof_fc() const { return ee3Dof_fc_; }
+    const Eigen::VectorXd& ee6Dof_pos() const { return ee6Dof_pos_; }
+    const Eigen::VectorXd& ee6Dof_vel() const { return ee6Dof_vel_; }
     const Eigen::VectorXd& ee6Dof_fc() const { return ee6Dof_fc_; }
     const Eigen::Vector3d& com_pos() const { return com_pos_; }
     const Eigen::Vector3d& com_vel_W() const { return com_vel_W_; }
@@ -347,6 +369,40 @@ public:
 
             int src_idx = it->second;
             vec_out.segment(i * dim, dim) = vec_in.segment(src_idx * dim, dim);
+        }
+    }
+
+    // 重载版本：用于 vector<bool> 的重排
+    static void reorder(
+        const std::vector<std::string> &names_in,
+        const std::vector<bool> &vec_in,
+        const std::vector<std::string> &names_out,
+        std::vector<bool> &vec_out
+    ) {
+        int n_in = names_in.size();
+        int n_out = names_out.size();
+
+        if (n_in != n_out)
+            throw std::invalid_argument("names_in and names_out must have same length");
+
+        if ((int)vec_in.size() != n_in)
+            throw std::invalid_argument("vec_in size must equal names_in size");
+
+        vec_out.resize(n_out);
+
+        // 建立名字 -> 索引
+        std::unordered_map<std::string, int> name_to_idx;
+        for (int i = 0; i < n_in; ++i)
+            name_to_idx[names_in[i]] = i;
+
+        // 重排
+        for (int i = 0; i < n_out; ++i) {
+            auto it = name_to_idx.find(names_out[i]);
+            if (it == name_to_idx.end())
+                throw std::invalid_argument("Name " + names_out[i] + " not found in names_in");
+
+            int src_idx = it->second;
+            vec_out[i] = vec_in[src_idx];  // vector<bool> OK
         }
     }
 };

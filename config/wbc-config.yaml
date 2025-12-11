@@ -1,5 +1,6 @@
 # Whole body control
 verbose: false
+logInterval : 5
 
 # go1
 # urdfPath: /root/code/go2_ws/src/legged_wbc/urdf/go1.urdf
@@ -55,4 +56,5 @@ qpSolver: osqp      # osqp qpOASES
 motionList:
   - stand
   - jump
+  - lift_leg
 

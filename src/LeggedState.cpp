@@ -24,7 +24,11 @@ std::map<std::string, Eigen::VectorXd> LeggedState::getStateMap() const {
     state_map["joint_pos"] = joint_pos_;
     state_map["joint_vel"] = joint_vel_;
     state_map["joint_tau"] = joint_tau_;
+    state_map["ee3Dof_pos"] = ee3Dof_pos_;
+    state_map["ee3Dof_vel"] = ee3Dof_vel_;
     state_map["ee3Dof_fc"] = ee3Dof_fc_;
+    state_map["ee6Dof_pos"] = ee6Dof_pos_;
+    state_map["ee6Dof_vel"] = ee6Dof_vel_;
     state_map["ee6Dof_fc"] = ee6Dof_fc_;
 
     return state_map;
@@ -45,11 +49,11 @@ void LeggedState::updateCustomState() {
                 Eigen::VectorXd reordered;
                 reorder(joint_names_, vec, custom_state.joint_order, reordered);
                 custom_state.state_vec.segment(pos, reordered.size()) = reordered;
-            } else if (!custom_state.ee3Dof_order.empty() && elem_name == "ee3Dof_fc") {
+            } else if (!custom_state.ee3Dof_order.empty() && elem_name.rfind("ee3Dof_", 0) == 0) {
                 Eigen::VectorXd reordered;
                 reorder(ee3Dof_names_, vec, custom_state.ee3Dof_order, reordered);
                 custom_state.state_vec.segment(pos, reordered.size()) = reordered;
-            } else if (!custom_state.ee6Dof_order.empty() && elem_name == "ee6Dof_fc") {
+            } else if (!custom_state.ee6Dof_order.empty() && elem_name.rfind("ee6Dof_", 0) == 0) {
                 Eigen::VectorXd reordered;
                 reorder(ee6Dof_names_, vec, custom_state.ee6Dof_order, reordered);
                 custom_state.state_vec.segment(pos, reordered.size()) = reordered;
@@ -114,7 +118,13 @@ void LeggedState::init(int num_joints, std::vector<std::string> joint_names, vec
 
     ee3Dof_names_ = ee3Dof_names;
     ee6Dof_names_ = ee6Dof_names;
+    ee3Dof_contact_.resize(ee3Dof_names_.size(), true);
+    ee6Dof_contact_.resize(ee6Dof_names_.size(), true);
+    ee3Dof_pos_ = VectorXd::Zero(ee3Dof_names_.size()*3);
+    ee3Dof_vel_ = VectorXd::Zero(ee3Dof_names_.size()*3);
     ee3Dof_fc_ = VectorXd::Zero(ee3Dof_names_.size()*3);
+    ee6Dof_pos_ = VectorXd::Zero(ee6Dof_names.size()*6);
+    ee6Dof_vel_ = VectorXd::Zero(ee6Dof_names.size()*6);
     ee6Dof_fc_ = VectorXd::Zero(ee6Dof_names.size()*6);
 
     rbd_state_ = VectorXd::Zero(getRbdStateSize());
@@ -128,7 +138,13 @@ void LeggedState::clear(){
     setJointPos(Eigen::VectorXd::Zero(num_joints_));
     setJointVel(Eigen::VectorXd::Zero(num_joints_));
     setJointTau(Eigen::VectorXd::Zero(num_joints_));
+    ee3Dof_contact_.resize(ee3Dof_names_.size(), true);
+    ee6Dof_contact_.resize(ee6Dof_names_.size(), true);
+    setEE3DofPos(Eigen::VectorXd::Zero(ee3Dof_names_.size()*3));
+    setEE3DofVel(Eigen::VectorXd::Zero(ee3Dof_names_.size()*3));
     setEE3DofFc(Eigen::VectorXd::Zero(ee3Dof_names_.size()*3));
+    setEE6DofPos(Eigen::VectorXd::Zero(ee6Dof_names_.size()*6));
+    setEE6DofVel(Eigen::VectorXd::Zero(ee6Dof_names_.size()*6));
     setEE6DofFc(Eigen::VectorXd::Zero(ee6Dof_names_.size()*6));
     setComPos(Eigen::Vector3d::Zero());
     setComVelW(Eigen::Vector3d::Zero());
@@ -151,7 +167,11 @@ void LeggedState::log(std::string prefix){
     logger.update(prefix+"joint_pos", joint_pos_);
     logger.update(prefix+"joint_vel", joint_vel_);
     logger.update(prefix+"joint_tau", joint_tau_);
+    logger.update(prefix+"ee3Dof_pos", ee3Dof_pos_);
+    logger.update(prefix+"ee3Dof_vel", ee3Dof_vel_);
     logger.update(prefix+"ee3Dof_fc", ee3Dof_fc_);
+    logger.update(prefix+"ee6Dof_pos", ee6Dof_pos_);
+    logger.update(prefix+"ee6Dof_vel", ee6Dof_vel_);
     logger.update(prefix+"ee6Dof_fc", ee6Dof_fc_);
 
 
@@ -273,6 +293,49 @@ void LeggedState::setJointTau(const Eigen::VectorXd& joint_tau, const std::vecto
     }
 }
 
+void LeggedState::setEE3DofContact(const std::vector<bool>& ee3Dof_contact, const std::vector<std::string>& ee3Dof_order) {
+    if (ee3Dof_order.empty()) {
+        if (ee3Dof_contact.size() != ee3Dof_contact_.size()) {
+            throw std::runtime_error("[LeggedState] ee3Dof_contact size mismatch.");
+        }
+        ee3Dof_contact_ = ee3Dof_contact;
+    } else {
+        reorder(ee3Dof_order, ee3Dof_contact, ee3Dof_names_, ee3Dof_contact_);
+    }
+}
+
+vector<bool> LeggedState::ee3Dof_contact(const vector<string>& ee3Dof_order) const {
+    if (ee3Dof_order.empty()) {
+        return ee3Dof_contact_;
+    } else {
+        vector<bool> reordered;
+        reorder(ee3Dof_names_, ee3Dof_contact_, ee3Dof_order, reordered);
+        return reordered;
+    }
+}
+
+void LeggedState::setEE3DofPos(const VectorXd& ee3Dof_pos, const vector<string>& ee3Dof_order) {
+    if (ee3Dof_order.empty()) {
+        if (ee3Dof_pos.size() != ee3Dof_pos_.size()) {
+            throw std::runtime_error("[LeggedState] ee3Dof_pos size mismatch.");
+        }
+        ee3Dof_pos_ = ee3Dof_pos;
+    } else {
+        reorder(ee3Dof_order, ee3Dof_pos, ee3Dof_names_, ee3Dof_pos_);
+    } 
+}
+
+void LeggedState::setEE3DofVel(const VectorXd& ee3Dof_vel, const vector<string>& ee3Dof_order) {
+    if (ee3Dof_order.empty()) {
+        if (ee3Dof_vel.size() != ee3Dof_vel_.size()) {
+            throw std::runtime_error("[LeggedState] ee3Dof_vel size mismatch.");
+        }
+        ee3Dof_vel_ = ee3Dof_vel;
+    } else {
+        reorder(ee3Dof_order, ee3Dof_vel, ee3Dof_names_, ee3Dof_vel_);
+    } 
+}
+
 void LeggedState::setEE3DofFc(const VectorXd& ee3Dof_fc, const vector<string>& ee3Dof_order) {
     if (ee3Dof_order.empty()) {
         if (ee3Dof_fc.size() != ee3Dof_fc_.size()) {
@@ -284,10 +347,53 @@ void LeggedState::setEE3DofFc(const VectorXd& ee3Dof_fc, const vector<string>& e
     } 
 }
 
+void LeggedState::setEE6DofContact(const std::vector<bool>& ee6Dof_contact, const std::vector<std::string>& ee6Dof_order) {
+    if (ee6Dof_order.empty()) {
+        if (ee6Dof_contact.size() != ee6Dof_contact_.size()) {
+            throw std::runtime_error("[LeggedState] ee6Dof_contact size mismatch.");
+        }
+        ee6Dof_contact_ = ee6Dof_contact;
+    } else {
+        reorder(ee6Dof_order, ee6Dof_contact, ee6Dof_names_, ee6Dof_contact_);
+    }
+}
+
+vector<bool> LeggedState::ee6Dof_contact(const vector<string>& ee6Dof_order) const {
+    if (ee6Dof_order.empty()) {
+        return ee6Dof_contact_;
+    } else {
+        vector<bool> reordered;
+        reorder(ee6Dof_names_, ee6Dof_contact_, ee6Dof_order, reordered);
+        return reordered; 
+    }
+}
+
+void LeggedState::setEE6DofPos(const VectorXd& ee6Dof_pos, const vector<string>& ee6Dof_order) {
+    if (ee6Dof_order.empty()) {
+        if (ee6Dof_pos.size() != ee6Dof_pos_.size()) {
+            throw std::runtime_error("[LeggedState] ee6Dof_pos size mismatch.");
+        }
+        ee6Dof_pos_ = ee6Dof_pos;
+    } else {
+        reorder(ee6Dof_order, ee6Dof_pos, ee6Dof_names_, ee6Dof_pos_);
+    } 
+}
+
+void LeggedState::setEE6DofVel(const VectorXd& ee6Dof_vel, const vector<string>& ee6Dof_order) {
+    if (ee6Dof_order.empty()) {
+        if (ee6Dof_vel.size() != ee6Dof_vel_.size()) {
+            throw std::runtime_error("[LeggedState] ee6Dof_vel size mismatch.");
+        }
+        ee6Dof_vel_ = ee6Dof_vel;
+    } else {
+        reorder(ee6Dof_order, ee6Dof_vel, ee6Dof_names_, ee6Dof_vel_);
+    } 
+}
+
 void LeggedState::setEE6DofFc(const VectorXd& ee6Dof_fc, const vector<string>& ee6Dof_order) {
     if (ee6Dof_order.empty()) {
         if (ee6Dof_fc.size() != ee6Dof_fc_.size()) {
-            throw std::runtime_error("[LeggedState] ee3Dof_fc size mismatch.");
+            throw std::runtime_error("[LeggedState] ee6Dof_fc size mismatch.");
         }
         ee6Dof_fc_ = ee6Dof_fc;
     } else {
@@ -374,8 +480,16 @@ void LeggedState::setFromCustomState(const std::string& state_name, const Eigen:
             setJointVel(segment, custom_state.joint_order);
         } else if (elem_name == "joint_tau") {
             setJointTau(segment, custom_state.joint_order);
+        } else if (elem_name == "ee3Dof_pos") {
+            setEE3DofPos(segment, custom_state.ee3Dof_order);
+        } else if (elem_name == "ee3Dof_vel") {
+            setEE3DofVel(segment, custom_state.ee3Dof_order);
         } else if (elem_name == "ee3Dof_fc") {
             setEE3DofFc(segment, custom_state.ee3Dof_order);
+        } else if (elem_name == "ee6Dof_pos") {
+            setEE6DofPos(segment, custom_state.ee6Dof_order);
+        } else if (elem_name == "ee6Dof_vel") {
+            setEE6DofVel(segment, custom_state.ee6Dof_order);
         } else if (elem_name == "ee6Dof_fc") {
             setEE6DofFc(segment, custom_state.ee6Dof_order);
         } else {

@@ -10,6 +10,7 @@
 #include "legged_wbc/Types.h"
 
 #include <array>
+#include <cstddef>
 #include <stdexcept>
 #include <string>
 #include <yaml-cpp/yaml.h>
@@ -45,7 +46,6 @@ class WbcBase {
   virtual void log(const vector_t& x);
 
   virtual vector_t update(LeggedState des_state, LeggedState real_state,
-                          std::array<bool, 4> contactFlag,
                           scalar_t period, std::string method = "centroidal");
 
   size_t mass() const {return mass_;}
@@ -97,7 +97,7 @@ class WbcBase {
   Eigen::Vector3d comDes_, vcomDes_, comAct_, vcomAct_;
   Vector6 hgDes_, hgAct_;
   size_t numContacts_;
-  std::array<bool, 4> contactFlag_;
+  vector<bool> contactFlag_;
   matrix_t MMeasured_, nleMeasured_, jMeasured_, djMeasured_;
   matrix_t AMeasured_, dAMeasured_;
 
@@ -112,6 +112,8 @@ class WbcBase {
 
   // Task
   Task swingLegTask_, baseAccTask_, comTask_, contactForceTask_, SumFzTask_, jointTorqueTask_, noContactMotionTask_;
+
+  size_t counter_ = 0, logInterval_ = 50;
 };
 
 }  // namespace legged

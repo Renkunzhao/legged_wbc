@@ -12,7 +12,7 @@ class WeightedWbc : public WbcBase {
  public:
   using WbcBase::WbcBase;
 
-  vector_t update(LeggedState des_state, LeggedState real_state, std::array<bool, 4> contactFlag,
+  vector_t update(LeggedState des_state, LeggedState real_state,
                   scalar_t period, std::string method="centroidal") override;
 
   void loadTasksSetting(const std::string& configFile) override;

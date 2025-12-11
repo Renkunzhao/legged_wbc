@@ -76,3 +76,55 @@ inline Eigen::VectorXd yamlToEigenVector(const YAML::Node& node) {
     std::vector<double> vec = node.as<std::vector<double>>();
     return Eigen::Map<Eigen::VectorXd>(vec.data(), vec.size());
 }
+
+// 将 std::vector<Eigen::VectorX> 拼成一个大的 VectorXd
+template <typename VecT>
+inline Eigen::VectorXd concatVectors(const std::vector<VecT>& vecs)
+{
+    static_assert(
+        Eigen::internal::traits<VecT>::ColsAtCompileTime == 1,
+        "VecT must be a column vector (Eigen::Matrix<..., 1>)"
+    );
+
+    // total size = sum of all vector sizes
+    size_t total_size = 0;
+    for (const auto& v : vecs) total_size += v.size();
+
+    Eigen::VectorXd out(total_size);
+
+    // copy data
+    size_t offset = 0;
+    for (const auto& v : vecs) {
+        out.segment(offset, v.size()) = v;
+        offset += v.size();
+    }
+
+    return out;
+}
+
+inline Eigen::VectorXd computeNominalEE3DofForces(const std::vector<bool>& contactFlag, double mass) {
+    const double g = 9.81;
+    const size_t n_legs = contactFlag.size();
+    Eigen::VectorXd f_des = Eigen::VectorXd::Zero(3 * n_legs);
+
+    // 支撑腿数量
+    int n_contacts = 0;
+    for (bool c : contactFlag)
+        if (c) n_contacts++;
+
+    // 空中情况（无支撑腿）
+    if (n_contacts == 0)
+        return f_des;
+
+    // 均分竖向力
+    double fz = mass * g / n_contacts;
+
+    for (size_t i = 0; i < n_legs; ++i) {
+        if (contactFlag[i]) {
+            f_des[3*i + 2] = fz;  // 只分配竖向力
+        }
+    }
+
+    return f_des;
+}
+

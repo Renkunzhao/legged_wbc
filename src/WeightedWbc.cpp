@@ -10,9 +10,9 @@
 
 namespace legged {
 
-vector_t WeightedWbc::update(LeggedState des_state, LeggedState real_state, std::array<bool, 4> contactFlag,
+vector_t WeightedWbc::update(LeggedState des_state, LeggedState real_state,
                              scalar_t period, std::string method) {
-  WbcBase::update(des_state, real_state, contactFlag, period);
+  WbcBase::update(des_state, real_state, period);
 
   // Constraints
   Task constraints = formulateConstraints();

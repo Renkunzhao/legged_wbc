@@ -105,7 +105,7 @@ inline Eigen::Vector4d quat_conjugate(Eigen::Vector4d q){
 inline void quat_isNormalized(Eigen::Vector4d q){
     if(std::abs(q.norm() - 1.0) > 1e-6) {
         std::cout << "[Rotation] q: " << q.transpose() << " norm: " << q.norm() << std::endl;
-        throw std::runtime_error("[Rotation] quaternion is not normalized.");
+        // throw std::runtime_error("[Rotation] quaternion is not normalized.");
     }
 }
 

@@ -1,4 +1,4 @@
-motionName: stand
+motionName: lift_leg
 
 constraintList:
   - floatingBaseEom
@@ -27,7 +27,7 @@ weight:
     - 0.0
     - 0.0
   SumFz: 0.25
-  swingLeg: 0
+  swingLeg: 10.
   jointTorque: 0
   noContactMotion:
     - 0.0
@@ -67,8 +67,8 @@ comTask:
     - 0.0       # wz
 
 swingLegTask:
-  kp: 0
-  kd: 0
+  kp: 400
+  kd: 20
 
 # joint PD
 jointKp: 10
