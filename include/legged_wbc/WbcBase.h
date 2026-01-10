@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <stdexcept>
 #include <string>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 using namespace std;
@@ -28,9 +29,10 @@ class WbcParameters {
   vector_t baseAccelKp_, baseAccelKd_, comKp_, comKd_;
   scalar_t swingKp_, swingKd_;
   scalar_t jointKp_, jointKd_;
+  scalar_t stanceZKp_, stanceZKd_;
 
   Eigen::VectorXd weightBaseAccel_, weightCom_, weightContactForce_, weightNoContactMotion_;
-  scalar_t weightSumFz_, weightSwingLeg_, weightJointTorque_;
+  scalar_t weightSumFz_, weightSwingLeg_, weightJointTorque_, weightFootZ_ = 0.0;
 };
 
 // Decision Variables: x = [\dot u^T, F^T, \tau^T]^T
@@ -79,7 +81,6 @@ class WbcBase {
   Task formulateFloatingBaseEomTask();
   Task formulateTorqueLimitsTask();
   Task formulateNoContactMotionTask();
-  Task formulateNoSlipXYTask();
   Task formulateFrictionConeTask();
   Task formulateBaseAccelTaskPD();
   Task formulateComTask();
@@ -87,6 +88,10 @@ class WbcBase {
   Task formulateContactForceTask();
   Task formulateSumFzTask();
   Task formulateJointTorqueTask();
+
+  // Soft terrain
+  Task formulateNoSlipXYTask();
+  Task formulateFootZTask();
 
   LeggedModel leggedModel_;
   size_t numDecisionVars_;
@@ -98,6 +103,7 @@ class WbcBase {
   Vector6 hgDes_, hgAct_;
   size_t numContacts_;
   vector<bool> contactFlag_;
+  vector<Vector3d> ee3DofPos_des_, ee3DofPos_act_, ee3DofVel_des_, ee3DofVel_act_;
   matrix_t MMeasured_, nleMeasured_, jMeasured_, djMeasured_;
   matrix_t AMeasured_, dAMeasured_;
 
@@ -111,7 +117,7 @@ class WbcBase {
   WbcParameters wbcParam_;
 
   // Task
-  Task swingLegTask_, baseAccTask_, comTask_, contactForceTask_, SumFzTask_, jointTorqueTask_, noContactMotionTask_;
+  Task swingLegTask_, baseAccTask_, comTask_, contactForceTask_, SumFzTask_, jointTorqueTask_, noContactMotionTask_, footZTask_;
 
   size_t counter_ = 0, logInterval_ = 50;
 };

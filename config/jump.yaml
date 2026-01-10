@@ -5,7 +5,7 @@ constraintList:
   - torqueLimits
   - frictionCone
   # - noContactMotion
-  # - noSlipXY
+  - noSlipXY
 
 weight:
   baseAccel: 
@@ -30,9 +30,10 @@ weight:
   swingLeg: 0
   jointTorque: 0
   noContactMotion:
-    - 1.0
-    - 1.0
-    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+  footZ: 1.
 
 baseAccelTask:
   baseAcc_kp:
@@ -67,8 +68,12 @@ comTask:
     - 100.0     # wz
 
 swingLegTask:
-  kp: 350
-  kd: 37
+  kp: 0
+  kd: 0
+
+stanceZTask:
+  kp: 400
+  kd: 20
 
 # joint PD
 jointKp: 10

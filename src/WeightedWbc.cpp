@@ -175,7 +175,8 @@ Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
     return formulateSwingLegTask() * wbcParam_.weightSwingLeg_ + formulateBaseAccelTaskPD() * wbcParam_.weightBaseAccel_ + formulateComTask() * wbcParam_.weightCom_ +
       formulateContactForceTask() * wbcParam_.weightContactForce_ + formulateNoContactMotionTask() * wbcParam_.weightNoContactMotion_
       + formulateSumFzTask() * wbcParam_.weightSumFz_ 
-      + formulateJointTorqueTask() * wbcParam_.weightJointTorque_;
+      + formulateJointTorqueTask() * wbcParam_.weightJointTorque_
+      + formulateFootZTask() * wbcParam_.weightFootZ_;
   }
 }
 
@@ -207,6 +208,7 @@ void WeightedWbc::log(const vector_t& x){
     logger.update("sumFzCost", computeCost(SumFzTask_, x, wbcParam_.weightSumFz_));
     logger.update("jointTorqueCost", computeCost(jointTorqueTask_, x, wbcParam_.weightJointTorque_));
     logger.update("noContactMotionCost", computeCost(noContactMotionTask_, x, wbcParam_.weightNoContactMotion_));
+    logger.update("footZCost", computeCost(footZTask_, x, wbcParam_.weightFootZ_));
 }
 
 }  // namespace legged

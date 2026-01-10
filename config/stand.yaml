@@ -33,6 +33,7 @@ weight:
     - 0.0
     - 0.0
     - 0.0
+  footZ: 0.
 
 baseAccelTask:
   baseAcc_kp:
@@ -69,6 +70,10 @@ comTask:
 swingLegTask:
   kp: 0
   kd: 0
+
+stanceZTask:
+  kp: 400
+  kd: 20
 
 # joint PD
 jointKp: 10

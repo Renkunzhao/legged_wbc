@@ -96,6 +96,9 @@ void WbcBase::updateMeasured() {
   AMeasured_ = data.Ag;
   dAMeasured_ = data.dAg;
 
+  ee3DofPos_act_ = leggedModel_.contact3DofPoss(qMeasured_);
+  ee3DofVel_act_ = leggedModel_.contact3DofVels(qMeasured_, vMeasured_);
+
   if(verbose_) {
     std::cout << "[WbcBase] MMeasured:\n" << MMeasured_ << std::endl;
     std::cout << "[WbcBase] nleMeasured:" << nleMeasured_.transpose() << std::endl;
@@ -109,6 +112,9 @@ void WbcBase::updateMeasured() {
 void WbcBase::updateDesired() {
   const auto& model = leggedModel_.model();
   auto& data = leggedModel_.data();
+
+  ee3DofPos_des_ = splitVectors<Vector3d>(des_state_.custom_state("eePos_pin"), 3);
+  ee3DofVel_des_ = splitVectors<Vector3d>(des_state_.custom_state("eeVel_pin"), 3);
 }
 
 Task WbcBase::formulateFloatingBaseEomTask() {
@@ -198,6 +204,38 @@ Task WbcBase::formulateNoSlipXYTask() {
   }
   
   return {a, b, matrix_t(), vector_t()};
+}
+
+Task WbcBase::formulateFootZTask() {
+  matrix_t a(numContacts_, numDecisionVars_);
+  vector_t b(a.rows());
+  a.setZero();
+  b.setZero();
+  size_t j = 0;
+  for (size_t i = 0; i < leggedModel_.nContacts3Dof(); i++) {
+    if (contactFlag_[i]) {
+      Eigen::Vector3d accel = wbcParam_.stanceZKp_ * (ee3DofPos_des_[i] - ee3DofPos_act_[i]) + wbcParam_.stanceZKd_ * (ee3DofVel_des_[i] - ee3DofVel_act_[i]);
+      a.block(j, 0, 1, leggedModel_.nDof()) = jMeasured_.block(3*i+2, 0, 1, leggedModel_.nDof());
+      double djv =
+          (djMeasured_.block(3*i + 2, 0, 1, leggedModel_.nDof()) * vMeasured_)(0);
+      b(j) = accel[2] - djv;
+      j++;
+    }
+  }
+
+  if(verbose_ && (counter_ % logInterval_ == 0)) {
+    std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+    std::cout << "[WbcBase] FootZTask " << std::endl;
+    std::cout << "[WbcBase] a:\n" << a << std::endl;
+    std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
+    std::cout << "[WbcBase] ee3DofPos_des: " << concatVectors(ee3DofPos_des_).transpose() << std::endl;
+    std::cout << "[WbcBase] ee3DofPos_act: " << concatVectors(ee3DofPos_act_).transpose() << std::endl;
+    std::cout << "[WbcBase] ee3DofVel_des: " << concatVectors(ee3DofVel_des_).transpose() << std::endl;
+    std::cout << "[WbcBase] ee3DofVel_act: " << concatVectors(ee3DofVel_act_).transpose() << std::endl;
+  }
+  
+  footZTask_ = Task(a, b, matrix_t(), vector_t());
+  return footZTask_;
 }
 
 Task WbcBase::formulateFrictionConeTask() {
@@ -305,11 +343,6 @@ Task WbcBase::formulateComTask() {
 }
 
 Task WbcBase::formulateSwingLegTask() {
-  std::vector<Eigen::Vector3d> posMeasured = leggedModel_.contact3DofPoss(qMeasured_);
-  std::vector<Eigen::Vector3d> velMeasured = leggedModel_.contact3DofVels(qMeasured_, vMeasured_);
-  VectorXd eePos_des = des_state_.custom_state("eePos_pin");
-  VectorXd eeVel_des = des_state_.custom_state("eeVel_pin");
-
   matrix_t a(3 * (leggedModel_.nContacts3Dof() - numContacts_), numDecisionVars_);
   vector_t b(a.rows());
   a.setZero();
@@ -317,13 +350,13 @@ Task WbcBase::formulateSwingLegTask() {
   size_t j = 0;
   for (size_t i = 0; i < leggedModel_.nContacts3Dof(); ++i) {
     if (!contactFlag_[i]) {
-      Eigen::Vector3d accel = wbcParam_.swingKp_ * (eePos_des.segment<3>(3*i) - posMeasured[i]) + wbcParam_.swingKd_ * (eeVel_des.segment<3>(3*i) - velMeasured[i]);
+      Eigen::Vector3d accel = wbcParam_.swingKp_ * (ee3DofPos_des_[i] - ee3DofPos_act_[i]) + wbcParam_.swingKd_ * (ee3DofVel_des_[i] - ee3DofVel_act_[i]);
       a.block(3 * j, 0, 3, leggedModel_.nDof()) = jMeasured_.block(3 * i, 0, 3, leggedModel_.nDof());
       b.segment(3 * j, 3) = accel - djMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) * vMeasured_;
       j++;
       if(verbose_ && (counter_ % logInterval_ == 0)) {
-        std::cout << "[WbcBase] eePos_des:  " << eePos_des.transpose() << std::endl;
-        std::cout << "[WbcBase] eePos_real: " << concatVectors(posMeasured).transpose() << std::endl;
+        std::cout << "[WbcBase] eePos_des:  " << ee3DofPos_des_[i].transpose() << std::endl;
+        std::cout << "[WbcBase] eePos_act: " << ee3DofPos_act_[i].transpose() << std::endl;
         std::cout << "[WbcBase] accel" << accel.transpose() << std::endl;
       }
     }
@@ -425,6 +458,10 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
     param.swingKp_ = cfg["swingLegTask"]["kp"].as<double>();
     param.swingKd_ = cfg["swingLegTask"]["kd"].as<double>();
 
+    // === Stance Z Task ===
+    param.stanceZKp_ = cfg["stanceZTask"]["kp"].as<double>();
+    param.stanceZKd_ = cfg["stanceZTask"]["kd"].as<double>();
+
     // === Joint PD ===
     param.jointKp_ = cfg["jointKp"].as<double>();
     param.jointKd_ = cfg["jointKd"].as<double>();
@@ -443,6 +480,7 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
         param.weightSumFz_        = w["SumFz"].as<double>();
         param.weightSwingLeg_     = w["swingLeg"].as<double>();
         param.weightJointTorque_  = w["jointTorque"].as<double>();
+        param.weightFootZ_        = w["footZ"].as<double>();
     }
 
     // === Append to list ===
@@ -467,6 +505,7 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
             std::cout << "[WeightedWbc] weightSumFz: " << param.weightSumFz_ << std::endl;
             std::cout << "[WeightedWbc] weightSwingLeg: " << param.weightSwingLeg_ << std::endl;
             std::cout << "[WeightedWbc] weightJointTorque: " << param.weightJointTorque_ << std::endl;
+            std::cout << "[WeightedWbc] weightFootZ: " << param.weightFootZ_ << std::endl;
         }
         std::cout << "[WbcBase] Motion param loaded successfully." << std::endl;
     }

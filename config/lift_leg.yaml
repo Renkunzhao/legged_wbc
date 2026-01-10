@@ -27,12 +27,13 @@ weight:
     - 0.0
     - 0.0
   SumFz: 0.25
-  swingLeg: 10.
+  swingLeg: 15.
   jointTorque: 0
   noContactMotion:
     - 0.0
     - 0.0
     - 0.0
+  footZ: 0.
 
 baseAccelTask:
   baseAcc_kp:
@@ -68,6 +69,10 @@ comTask:
 
 swingLegTask:
   kp: 400
+  kd: 20
+
+stanceZTask:
+  kp: 2500
   kd: 20
 
 # joint PD

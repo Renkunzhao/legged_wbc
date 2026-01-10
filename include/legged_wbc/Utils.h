@@ -102,6 +102,63 @@ inline Eigen::VectorXd concatVectors(const std::vector<VecT>& vecs)
     return out;
 }
 
+//
+// 1) 主函数：按 sizes_vector 切
+//
+template <typename VecT>
+inline std::vector<VecT> splitVectors(
+    const Eigen::VectorXd& big,
+    const std::vector<int>& sizes)
+{
+    static_assert(
+        Eigen::internal::traits<VecT>::ColsAtCompileTime == 1,
+        "VecT must be a column vector"
+    );
+
+    std::vector<VecT> out;
+    out.reserve(sizes.size());
+
+    size_t offset = 0;
+    for (int len : sizes) {
+
+        // 如果 VecT 是固定长度，检查一致性
+        if constexpr (VecT::SizeAtCompileTime != Eigen::Dynamic) {
+            assert(VecT::SizeAtCompileTime == len &&
+                   "Fixed-size VecT does not match segment size");
+        }
+
+        VecT v(len);
+        v = big.segment(offset, len);
+        out.push_back(v);
+
+        offset += len;
+    }
+
+    return out;
+}
+
+//
+// 2) 重载：输入单个长度 n → 自动切分为 size = big.size() / n
+//
+template <typename VecT>
+inline std::vector<VecT> splitVectors(
+    const Eigen::VectorXd& big,
+    int len_per_segment)
+{
+    assert(len_per_segment > 0);
+
+    // 自动推断段数
+    assert(big.size() % len_per_segment == 0 &&
+           "big.size() must be divisible by len_per_segment");
+
+    int n_segments = big.size() / len_per_segment;
+
+    std::vector<int> sizes(n_segments, len_per_segment);
+
+    return splitVectors<VecT>(big, sizes);
+}
+
+
 inline Eigen::VectorXd computeNominalEE3DofForces(const std::vector<bool>& contactFlag, double mass) {
     const double g = 9.81;
     const size_t n_legs = contactFlag.size();
