@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(legged_wbc VERSION 0.1.0 LANGUAGES CXX)
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -11,162 +14,132 @@ add_compile_options(-Wno-return-type -Wno-deprecated-declarations)
 ##############################
 find_package(catkin QUIET)
 if(catkin_FOUND)
-    message("Found catkin")
-    catkin_package(
-        INCLUDE_DIRS include
-        LIBRARIES ${PROJECT_NAME}
-    )
+  message(STATUS "Found catkin")
+  catkin_package(
+    INCLUDE_DIRS include
+    LIBRARIES ${PROJECT_NAME}
+  )
 endif()
 
 ##############################
-# 2️⃣ 与 ROS 无关的部分（纯 C++）
+# 2️⃣ 纯 C++ 依赖
 ##############################
-
-# 第三方库
-find_package(Eigen3 REQUIRED)
-find_package(pinocchio REQUIRED)
-find_package(yaml-cpp REQUIRED)
 find_package(qpOASES REQUIRED)
 find_package(osqp REQUIRED)
 find_package(OsqpEigen REQUIRED)
-find_package(logger REQUIRED)
-find_package(manif REQUIRED)
+find_package(legged_model REQUIRED)
 
-# include 目录
-include_directories(
-    include
-    ${EIGEN3_INCLUDE_DIRS}
-    ${pinocchio_INCLUDE_DIRS}
-    ${qpOASES_INCLUDE_DIR}
-)
-
-# library 搜索路径
-link_directories(
-    ${pinocchio_LIBRARY_DIRS}
-)
-
-# 创建库
+##############################
+# 3️⃣ 创建库（PUBLIC 导出依赖）
+##############################
 add_library(${PROJECT_NAME} STATIC
-    src/WbcBase.cpp
-    src/WeightedWbc.cpp
-    src/LeggedState.cpp
-    src/LeggedModel.cpp
+  src/WbcBase.cpp
+  src/WeightedWbc.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC
-    ${pinocchio_LIBRARIES}
-    ${qpOASES_LIBRARY}
-    osqp::osqp
-    OsqpEigen::OsqpEigen
-    yaml-cpp
-    logger::CsvLogger
-)
+add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
+# 对下游暴露你自己的头文件
 target_include_directories(${PROJECT_NAME} PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-    ${EIGEN3_INCLUDE_DIRS}
-    ${manif_INCLUDE_DIRS}
-    ${pinocchio_INCLUDE_DIRS}
-    ${qpOASES_INCLUDE_DIR}
-    /usr/local/include/osqp
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
 )
 
-##############################
-# 3️⃣ 安装配置
-##############################
+# qpOASES：有的安装只给变量，没有 target。这里做兼容
+if(TARGET qpOASES::qpOASES)
+  target_link_libraries(${PROJECT_NAME} PUBLIC qpOASES::qpOASES)
+elseif(DEFINED qpOASES_LIBRARY)
+  target_include_directories(${PROJECT_NAME} PUBLIC ${qpOASES_INCLUDE_DIR})
+  target_link_libraries(${PROJECT_NAME} PUBLIC ${qpOASES_LIBRARY})
+else()
+  # 兜底：如果包只给 qpOASES_LIBRARIES 之类变量，你可按实际变量名改
+  target_include_directories(${PROJECT_NAME} PUBLIC ${qpOASES_INCLUDE_DIR})
+  target_link_libraries(${PROJECT_NAME} PUBLIC ${qpOASES_LIBRARY})
+endif()
 
-# 安装库
-install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
-    INCLUDES DESTINATION include
+# OSQP / OsqpEigen：通常是标准 target
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  osqp::osqp
+  OsqpEigen::OsqpEigen
+  legged_model::legged_model
 )
 
-# 安装头文件
-install(DIRECTORY include/ DESTINATION include)
+# 一般不需要硬编码 /usr/local/include/osqp
+# 如果你当前 osqp 包没有正确导出 include（极少数情况），再打开下面这行：
+# target_include_directories(${PROJECT_NAME} PUBLIC /usr/local/include/osqp)
 
-# 安装导出文件
+##############################
+# 4️⃣ 可执行文件（本地测试）
+##############################
+add_executable(WeightedWbc_test test/WeightedWbc_test.cpp)
+target_link_libraries(WeightedWbc_test PRIVATE ${PROJECT_NAME}::${PROJECT_NAME})
+
+##############################
+# 5️⃣ 安装：库 + 头文件 + CMake Package
+##############################
+install(TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(DIRECTORY include/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
 install(EXPORT ${PROJECT_NAME}Targets
-    FILE ${PROJECT_NAME}Config.cmake
-    NAMESPACE ${PROJECT_NAME}::
-    DESTINATION lib/cmake/${PROJECT_NAME}
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
+
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
+
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
 )
 
 ##############################
-# 4️⃣ 可执行文件（独立测试）
+# 6️⃣ ROS1 安装（可选）
 ##############################
-
-add_executable(Math_test
-    test/Math_test.cpp
-)
-target_link_libraries(Math_test)
-
-add_executable(Lie_test
-    test/Lie_test.cpp
-)
-target_link_libraries(Lie_test ${pinocchio_LIBRARIES})
-
-add_executable(LeggedState_test
-    test/LeggedState_test.cpp
-)
-target_link_libraries(LeggedState_test ${PROJECT_NAME} ${pinocchio_LIBRARIES})
-
-add_executable(LeggedModel_test
-    test/LeggedModel_test.cpp
-    src/LeggedModel.cpp
-)
-target_link_libraries(LeggedModel_test ${PROJECT_NAME} ${pinocchio_LIBRARIES} yaml-cpp)
-
-add_executable(WeightedWbc_test
-    test/WeightedWbc_test.cpp
-    src/LeggedModel.cpp
-    src/WbcBase.cpp
-    src/WeightedWbc.cpp
-)
-target_link_libraries(WeightedWbc_test ${PROJECT_NAME} ${pinocchio_LIBRARIES} ${qpOASES_LIBRARY} OsqpEigen::OsqpEigen osqp::osqp yaml-cpp)
-
-##############################
-# 5️⃣ ROS1 测试与安装
-##############################
-
 if(catkin_FOUND)
-    # 安装库和头文件
-    install(TARGETS ${PROJECT_NAME}
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-    )
-    install(DIRECTORY include/${PROJECT_NAME}/
-        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-    )
-
-    # ROS1 测试
-    if (CATKIN_ENABLE_TESTING)
-        catkin_add_gtest(${PROJECT_NAME}_test
-            test/HoQp_test.cpp
-        )
-        target_link_libraries(${PROJECT_NAME}_test
-            ${PROJECT_NAME}
-            ${pinocchio_LIBRARIES}
-            gtest_main
-        )
-    endif()
+  install(TARGETS ${PROJECT_NAME}
+    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
+  install(DIRECTORY include/
+    DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  )
 endif()
 
 ##############################
-# 6️⃣ ROS2 / ament_cmake 支持
+# 7️⃣ ROS2 / ament_cmake 支持（导出依赖）
 ##############################
-
 find_package(ament_cmake QUIET)
 if(ament_cmake_FOUND)
-    message("Found ament_cmake")
+  message(STATUS "Found ament_cmake")
 
-    # 安装可执行文件
-    install(TARGETS Math_test Lie_test LeggedState_test LeggedModel_test WeightedWbc_test
-        DESTINATION lib/${PROJECT_NAME}
-    )
+  install(TARGETS WeightedWbc_test
+    DESTINATION lib/${PROJECT_NAME}
+  )
 
-    ament_package()
+  ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
+  ament_export_dependencies(qpOASES osqp OsqpEigen legged_model)
+
+  ament_package()
 endif()

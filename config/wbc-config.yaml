@@ -2,46 +2,6 @@
 verbose: false
 logInterval : 5
 
-# go1
-# urdfPath: /root/code/go2_ws/src/legged_wbc/urdf/go1.urdf
-
-# baseName: base
-# contact3DofNames:
-#   - LF_FOOT
-#   - RF_FOOT
-#   - LH_FOOT 
-#   - RH_FOOT
-
-# contact6DofNames: []
-
-# go2
-urdfPath: /root/code/go2_ws/src/legged_wbc/urdf/go2.urdf
-
-baseName: base
-contact3DofNames:
-  - FL_foot
-  - FR_foot
-  - RL_foot 
-  - RR_foot
-
-contact6DofNames: []
-
-hipNames:
-  - FL_thigh_joint
-  - FR_thigh_joint
-  - RL_thigh_joint
-  - RR_thigh_joint
-
-jointLimits:
-  min:
-    - -1.0472
-    - -0.2094
-    - -2.7227
-  max:
-    - 1.0472
-    - 1.9897
-    - -0.83776
-
 torqueLimitsTask:
   - 23.7     # HAA
   - 23.7     # HFE

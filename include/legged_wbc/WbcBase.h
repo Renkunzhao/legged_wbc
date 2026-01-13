@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "legged_wbc/LeggedState.h"
+#include "legged_model/LeggedState.h"
+#include "legged_model/LeggedModel.h"
 #include "legged_wbc/Task.h"
-#include "legged_wbc/LeggedModel.h"
 #include "legged_wbc/Types.h"
 
 #include <array>
@@ -44,6 +44,8 @@ class WbcBase {
   WbcBase() = default;
 
   virtual void loadTasksSetting(const std::string& configFile);
+  void setWbcParam(const std::string& motionName);
+  void setLeggedModel(const LeggedModel& model) { leggedModel_ = model; }
 
   virtual void log(const vector_t& x);
 
@@ -51,12 +53,9 @@ class WbcBase {
                           scalar_t period, std::string method = "centroidal");
 
   size_t mass() const {return mass_;}
-  LeggedModel& leggedModel() {return leggedModel_;}
 
   double getJointKp() const {return wbcParam_.jointKp_;}
   double getJointKd() const {return wbcParam_.jointKd_;}
-
-  void setWbcParam(const std::string& motionName);
 
  protected:
   double inline computeCost(Task task, vector_t x, double weight = 1){
@@ -71,7 +70,6 @@ class WbcBase {
     vector_t b = weight.asDiagonal() * task.b_;
     return 0.5 * (y.squaredNorm() - b.squaredNorm());
   }
-
 
   void updateMeasured();
   void updateDesired();

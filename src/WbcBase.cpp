@@ -4,10 +4,10 @@
 #include <cstddef>
 #include <pinocchio/fwd.hpp>  // forward declarations must be included first.
 
-#include "legged_wbc/Utils.h"
+#include "legged_model/Utils.h"
+#include "legged_model/Lie.h"
 #include "legged_wbc/Task.h"
 #include "legged_wbc/Types.h"
-#include "legged_wbc/Lie.h"
 #include "legged_wbc/WbcBase.h"
 
 #include <logger/CsvLogger.h>
@@ -531,14 +531,6 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
 
     verbose_ = configNode["verbose"].as<bool>();
     logInterval_ = configNode["logInterval"].as<size_t>();
-
-    // === General robot setup ===
-    leggedModel_.loadUrdf(configNode["urdfPath"].as<std::string>(), "quaternion",
-                          configNode["baseName"].as<std::string>(),
-                          configNode["contact3DofNames"].as<std::vector<std::string>>(),
-                          configNode["contact6DofNames"].as<std::vector<std::string>>(),
-                          configNode["hipNames"].as<std::vector<std::string>>(),
-                          verbose_);
 
     mass_ = pinocchio::computeTotalMass(leggedModel_.model());
 
