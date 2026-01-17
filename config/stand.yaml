@@ -23,10 +23,10 @@ weight:
     - 0.0
     - 0.0
   contactForce: 
-    - 0.0
-    - 0.0
-    - 0.0
-  SumFz: 0.25
+    - 0.25
+    - 0.25
+    - 0.25
+  SumFz: 0.
   swingLeg: 0
   jointTorque: 0
   noContactMotion:
@@ -40,16 +40,16 @@ baseAccelTask:
     - 400.0       # p_base_x
     - 400.0       # p_base_y
     - 400.0       # p_base_z
-    - 400.0       # x
-    - 400.0       # y
-    - 400.0       # z
+    - 100.0       # x
+    - 100.0       # y
+    - 100.0       # z
   baseAcc_kd:
     - 20.0      # vx
     - 20.0      # vy
     - 20.0      # vz
-    - 20.0      # wx
-    - 20.0      # wy
-    - 20.0      # wz
+    - 10.0      # wx
+    - 10.0      # wy
+    - 10.0      # wz
 
 comTask:
   com_kp:

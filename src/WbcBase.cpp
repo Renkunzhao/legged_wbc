@@ -143,9 +143,8 @@ Task WbcBase::formulateTorqueLimitsTask() {
   d.block(leggedModel_.nJoints(), leggedModel_.nDof() + 3 * leggedModel_.nContacts3Dof(), leggedModel_.nJoints(),
           leggedModel_.nJoints()) = -i;
   vector_t f(2 * leggedModel_.nJoints());
-  for (size_t l = 0; l < 2 * leggedModel_.nJoints() / 3; ++l) {
-    f.segment<3>(3 * l) = torqueLimits_;
-  }
+  f.head(leggedModel_.nJoints()) = leggedModel_.tauMax();
+  f.tail(leggedModel_.nJoints()) = leggedModel_.tauMax();
 
   if(verbose_) {
     std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
@@ -571,13 +570,11 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
         setWbcParam("stand");
     }
 
-    torqueLimits_ = yamlToEigenVector(configNode["torqueLimitsTask"]);
     frictionCoeff_ = configNode["frictionConeTask"]["frictionCoefficient"].as<double>();
 
     if (verbose_) {
         std::cout << "[WbcBase] Mass: " << mass_ << std::endl;
         std::cout << "[WbcBase] Decision vars: " << numDecisionVars_ << std::endl;
-        std::cout << "[WbcBase] torqueLimits: " << torqueLimits_.transpose() << std::endl;
         std::cout << "[WbcBase] frictionCoeff: " << frictionCoeff_ << std::endl;
         std::cout << "[WbcBase] Loaded " << wbcParamList_.size()
                   << " motion params (default = stand)" << std::endl;

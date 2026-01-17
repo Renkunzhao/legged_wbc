@@ -107,7 +107,6 @@ class WbcBase {
 
   // Task Parameters:
   bool verbose_;
-  vector_t torqueLimits_ = vector_t::Zero(3);
   scalar_t frictionCoeff_{};
 
   void loadWbcParam(const std::string& motionFile, bool verbose);
