@@ -8,7 +8,7 @@
 
 #include <Eigen/Dense>
 
-namespace legged {
+namespace LeggedAI {
 
 using scalar_t = double;
 /** Dynamic-size vector type. */
@@ -19,4 +19,4 @@ using matrix_t = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
 using Vector6 = Eigen::Matrix<scalar_t, 6, 1>;
 using Matrix6 = Eigen::Matrix<scalar_t, 6, 6>;
 
-}  // namespace legged
+}  // namespace LeggedAI

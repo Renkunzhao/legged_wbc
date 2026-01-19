@@ -8,7 +8,7 @@
 #include <qpOASES.hpp>
 #include <OsqpEigen/OsqpEigen.h>
 
-namespace legged {
+namespace LeggedAI {
 
 vector_t WeightedWbc::update(LeggedState des_state, LeggedState real_state,
                              scalar_t period, std::string method) {
@@ -211,4 +211,4 @@ void WeightedWbc::log(const vector_t& x){
     logger.update("footZCost", computeCost(footZTask_, x, wbcParam_.weightFootZ_));
 }
 
-}  // namespace legged
+}  // namespace LeggedAI

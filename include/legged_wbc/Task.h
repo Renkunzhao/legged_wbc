@@ -10,7 +10,7 @@
 
 #include <utility>
 
-namespace legged {
+namespace LeggedAI {
 
 class Task {
  public:
@@ -70,4 +70,4 @@ class Task {
   }
 };
 
-}  // namespace legged
+}  // namespace LeggedAI

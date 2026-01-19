@@ -10,7 +10,7 @@ int main(int argc, char* argv[]) {
     else configFile = argv[1];
     std::cout << "[WeightedWbc_test] Load config from " << configFile << std::endl;
 
-    legged::WeightedWbc weightedWbc;
+    LeggedAI::WeightedWbc weightedWbc;
     weightedWbc.loadTasksSetting(configFile);
 
     Eigen::VectorXd qMeasured(18), vMeasured(18), qDesired(18), vDesired(18), fDesired(12);

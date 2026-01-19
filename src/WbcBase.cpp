@@ -27,7 +27,7 @@
 namespace fs = std::filesystem;
 using namespace Lie;
 
-namespace legged {
+namespace LeggedAI {
 
 vector_t WbcBase::update(LeggedState des_state, LeggedState real_state,
                          scalar_t /*period*/ , std::string /*method*/) {
@@ -585,4 +585,4 @@ void WbcBase::log(const vector_t& x){
     CsvLogger& logger = CsvLogger::getInstance();
 }
 
-}  // namespace legged
+}  // namespace LeggedAI

@@ -18,7 +18,7 @@
 
 using namespace std;
 
-namespace legged {
+namespace LeggedAI {
 
 class WbcParameters {
   public:
@@ -119,4 +119,4 @@ class WbcBase {
   size_t counter_ = 0, logInterval_ = 50;
 };
 
-}  // namespace legged
+}  // namespace LeggedAI
