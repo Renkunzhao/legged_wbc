@@ -60,12 +60,12 @@ comTask:
     - 0.0       # y
     - 0.0       # z
   com_kd:
-    - 100.0     # vx
+    - 10.0     # vx
     - 10.0       # vy
-    - 300.0     # vz
-    - 100.0     # wx
-    - 200.0     # wy
-    - 100.0     # wz
+    - 30.0     # vz
+    - 10.0     # wx
+    - 10.0     # wy
+    - 10.0     # wz
 
 swingLegTask:
   kp: 0
