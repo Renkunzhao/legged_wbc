@@ -4,8 +4,8 @@ constraintList:
   - floatingBaseEom
   - torqueLimits
   - frictionCone
-  # - noContactMotion
-  - noSlipXY
+  - noContactMotion
+  # - noSlipXY
 
 weight:
   baseAccel: 
@@ -61,8 +61,8 @@ comTask:
     - 0.0       # z
   com_kd:
     - 10.0     # vx
-    - 10.0       # vy
-    - 30.0     # vz
+    - 10.0     # vy
+    - 150.0    # vz
     - 10.0     # wx
     - 10.0     # wy
     - 10.0     # wz
