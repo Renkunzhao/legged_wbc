@@ -17,4 +17,5 @@ motionList:
   - stand
   - jump
   - lift_leg
+  - hop
 
