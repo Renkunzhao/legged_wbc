@@ -96,7 +96,7 @@ class WbcBase {
 
   double mass_;
   LeggedState des_state_, real_state_;
-  vector_t qMeasured_, vMeasured_, qDesired_, vDesired_, vDesiredLast_, fDesired_;
+  vector_t qMeasured_, vMeasured_, qb_des_, vb_des_, vb_des_last_, fDesired_;
   Eigen::Vector3d comDes_, vcomDes_, comAct_, vcomAct_;
   Vector6 hgDes_, hgAct_;
   size_t numContacts_;

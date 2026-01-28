@@ -43,8 +43,8 @@ vector_t WbcBase::update(LeggedState des_state, LeggedState real_state,
     std::cout << "[WbcBase] contactFlag:" << contactFlag_[0] << " " << contactFlag_[1] << " " << contactFlag_[2] << " " << contactFlag_[3] << std::endl;
   }
 
-  qDesired_ = des_state_.custom_state("q_pin");
-  vDesired_ = des_state_.custom_state("v_pin");
+  qb_des_ = des_state_.custom_state("q_pin").head(leggedModel_.nqBase());
+  vb_des_ = des_state_.custom_state("v_pin").head(6);
   fDesired_ = des_state_.custom_state("f_pin");
   comDes_ = des_state_.com_pos();
   vcomDes_ = des_state_.com_vel_W();
@@ -286,18 +286,18 @@ Task WbcBase::formulateBaseAccelTaskPD() {
   Vector6 pos_error, vel_error, accel, b; 
 
   // https://github.com/stack-of-tasks/pinocchio/issues/16 pinocchio store quat in [x,y,w,z]
-  Eigen::Vector4d quat_des = quat_wxyz(qDesired_.segment(3,4));
+  Eigen::Vector4d quat_des = quat_wxyz(qb_des_.segment(3,4));
   Eigen::Vector4d quat = quat_wxyz(qMeasured_.segment(3,4));
   Eigen::Matrix3d R_des = quat_ToR(quat_des);
   Eigen::Matrix3d R = quat_ToR(quat);
-  pos_error << R.transpose() * (qDesired_.head(3) - qMeasured_.head(3)),
+  pos_error << R.transpose() * (qb_des_.head(3) - qMeasured_.head(3)),
                 quat_boxminusL(quat_des, quat);
 
   // Representation-Free Model Predictive Control for Dynamic Motions in Quadrupeds (https://arxiv.org/pdf/2012.10002 p5 equ-29,30) 
-  Eigen::Vector3d w_des = vDesired_.segment(3,3);
+  Eigen::Vector3d w_des = vb_des_.segment(3,3);
   Eigen::Vector3d w = vMeasured_.segment(3,3);
 
-  vel_error << R.transpose()*R_des*vDesired_.head(3) - vMeasured_.head(3),
+  vel_error << R.transpose()*R_des*vb_des_.head(3) - vMeasured_.head(3),
                R.transpose()*R_des*w_des - w; 
   b = wbcParam_.baseAccelKp_.asDiagonal() * pos_error + wbcParam_.baseAccelKd_.asDiagonal() * vel_error;
 
@@ -538,11 +538,11 @@ void WbcBase::loadTasksSetting(const std::string& configFile) {
         + 6 * leggedModel_.nContacts6Dof()
         + leggedModel_.nJoints();
 
-    qMeasured_.resize(leggedModel_.nqBase());
+    qMeasured_.resize(leggedModel_.nqPin());
     vMeasured_.resize(leggedModel_.nDof());
-    qDesired_.resize(leggedModel_.nqBase());
-    vDesired_.resize(leggedModel_.nDof());
-    vDesiredLast_.resize(leggedModel_.nDof());
+    qb_des_.resize(7);
+    vb_des_.resize(6);
+    vb_des_last_.resize(6);
     fDesired_.resize(3 * leggedModel_.nContacts3Dof() + 6 * leggedModel_.nContacts6Dof());
 
     // === Load each motion config ===
