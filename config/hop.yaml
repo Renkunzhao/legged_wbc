@@ -8,72 +8,30 @@ constraintList:
   # - noSlipXY
 
 weight:
-  baseAccel: 
-    - 1.1
-    - 1.1
-    - 1.1
-    - 1.1
-    - 1.1
-    - 1.1
-  com:  
-    - 0.1
-    - 0.1
-    - 0.5
-    - 1.0
-    - 1.0
-    - 1.0
-  contactForce: 
-    - 0.0
-    - 0.0
-    - 0.0
+  baseAccel: [1., 1., 1., 1., 1., 1.]
+  com:        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  contactForce: [0.0, 0.0, 0.0]
   SumFz: 0.25
   swingLeg: 0
   jointTorque: 0
-  noContactMotion:
-    - 0.0
-    - 0.0
-    - 0.0
-  footZ: 1.
+  noContactMotion: [0.0, 0.0, 0.0]
+  footZ: 0.
 
 baseAccelTask:
-  baseAcc_kp:
-    - 00.0       # p_base_x
-    - 00.0       # p_base_y
-    - 00.0       # p_base_z
-    - 00.0       # x
-    - 100.0       # y
-    - 00.0      # z
-  baseAcc_kd:
-    - 0.0      # vx
-    - 0.0      # vy
-    - 0.0      # vz
-    - 0.0      # wx
-    - 10.0     # wy
-    - 0.0      # wz
+  baseAcc_kp: [400., 400., 400., 100., 100., 100.]
+  baseAcc_kd: [20., 20., 20., 10., 10., 10.]
 
 comTask:
-  com_kp:
-    - 1.0       # p_base_x
-    - 9.0       # p_base_y
-    - 0.0       # p_base_z
-    - 0.0       # x
-    - 0.0       # y
-    - 0.0       # z
-  com_kd:
-    - 10.0     # vx
-    - 10.0     # vy
-    - 150.0    # vz
-    - 10.0     # wx
-    - 10.0     # wy
-    - 10.0     # wz
+  com_kp: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  com_kd: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 swingLegTask:
   kp: 0
   kd: 0
 
 stanceZTask:
-  kp: 400
-  kd: 20
+  kp: 0
+  kd: 0
 
 # joint PD
 jointKp: 10

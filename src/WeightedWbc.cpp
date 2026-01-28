@@ -172,11 +172,14 @@ Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
     // return formulateSwingLegTask() * wbcParam_.weightSwingLeg_ + formulateBaseAccelTask(period) * wbcParam_.weightBaseAccel_ +
     //       formulateContactForceTask() * wbcParam_.weightContactForce_;
   } else if (method == "pd") {
-    return formulateSwingLegTask() * wbcParam_.weightSwingLeg_ + formulateBaseAccelTaskPD() * wbcParam_.weightBaseAccel_ + formulateComTask() * wbcParam_.weightCom_ +
-      formulateContactForceTask() * wbcParam_.weightContactForce_ + formulateNoContactMotionTask() * wbcParam_.weightNoContactMotion_
-      + formulateSumFzTask() * wbcParam_.weightSumFz_ 
-      + formulateJointTorqueTask() * wbcParam_.weightJointTorque_
-      + formulateFootZTask() * wbcParam_.weightFootZ_;
+    return formulateBaseAccelTaskPD() * wbcParam_.weightBaseAccel_ 
+          + formulateComTask() * wbcParam_.weightCom_ 
+          + formulateContactForceTask() * wbcParam_.weightContactForce_ 
+          + formulateSumFzTask() * wbcParam_.weightSumFz_ 
+          + formulateSwingLegTask() * wbcParam_.weightSwingLeg_ 
+          + formulateJointTorqueTask() * wbcParam_.weightJointTorque_
+          + formulateNoContactMotionTask() * wbcParam_.weightNoContactMotion_
+          + formulateFootZTask() * wbcParam_.weightFootZ_;
   }
 }
 
