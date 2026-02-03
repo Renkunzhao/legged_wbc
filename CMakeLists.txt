@@ -27,7 +27,7 @@ endif()
 find_package(qpOASES REQUIRED)
 find_package(osqp REQUIRED)
 find_package(OsqpEigen REQUIRED)
-find_package(legged_model REQUIRED)
+find_package(legged_base REQUIRED)
 
 ##############################
 # 3️⃣ 创建库（PUBLIC 导出依赖）
@@ -61,7 +61,7 @@ endif()
 target_link_libraries(${PROJECT_NAME} PUBLIC
   osqp::osqp
   OsqpEigen::OsqpEigen
-  legged_model::legged_model
+  legged_base::legged_base
 )
 
 # 一般不需要硬编码 /usr/local/include/osqp
@@ -139,7 +139,7 @@ if(ament_cmake_FOUND)
   )
 
   ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
-  ament_export_dependencies(qpOASES osqp OsqpEigen legged_model)
+  ament_export_dependencies(qpOASES osqp OsqpEigen legged_base)
 
   ament_package()
 endif()

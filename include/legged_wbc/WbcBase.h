@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "legged_model/LeggedState.h"
-#include "legged_model/LeggedModel.h"
+#include "legged_base/LeggedState.h"
+#include "legged_base/LeggedModel.h"
 #include "legged_wbc/Task.h"
 #include "legged_wbc/Types.h"
 

@@ -5,6 +5,6 @@ include(CMakeFindDependencyMacro)
 find_dependency(qpOASES)
 find_dependency(osqp)
 find_dependency(OsqpEigen)
-find_dependency(legged_model)
+find_dependency(legged_base)
 
 include("${CMAKE_CURRENT_LIST_DIR}/legged_wbcTargets.cmake")
