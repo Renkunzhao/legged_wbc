@@ -1,22 +1,13 @@
 //
 // Created by Kunzhao on 2025/8/31.
 //
-#include <cstddef>
 #include <pinocchio/fwd.hpp>  // forward declarations must be included first.
 
-#include "legged_base/Utils.h"
-#include "legged_base/Lie.h"
-#include "legged_wbc/Task.h"
-#include "legged_wbc/Types.h"
-#include "legged_wbc/WbcBase.h"
-
-#include <logger/CsvLogger.h>
-
+#include <cstddef>
 #include <iostream>
 #include <string>
 #include <vector>
 #include <filesystem>
-
 #include <pinocchio/algorithm/centroidal.hpp>
 #include <pinocchio/algorithm/center-of-mass.hpp>
 #include <pinocchio/algorithm/crba.hpp>
@@ -24,10 +15,17 @@
 #include <pinocchio/algorithm/rnea.hpp>
 #include <pinocchio/math/rpy.hpp>
 
+#include "legged_wbc/Task.h"
+#include "legged_wbc/Types.h"
+#include "legged_wbc/WbcBase.h"
+#include <logger/CsvLogger.h>
+#include <legged_base/Utils.h>
+#include <legged_base/Lie.h>
+
 namespace fs = std::filesystem;
 using namespace Lie;
 
-namespace LeggedAI {
+namespace legged_wbc {
 
 vector_t WbcBase::update(LeggedState des_state, LeggedState real_state,
                          scalar_t /*period*/ , std::string /*method*/) {
@@ -113,8 +111,8 @@ void WbcBase::updateDesired() {
   const auto& model = leggedModel_.model();
   auto& data = leggedModel_.data();
 
-  ee3DofPos_des_ = splitVectors<Vector3d>(des_state_.custom_state("eePos_pin"), 3);
-  ee3DofVel_des_ = splitVectors<Vector3d>(des_state_.custom_state("eeVel_pin"), 3);
+  ee3DofPos_des_ = legged_base::splitVectors<Vector3d>(des_state_.custom_state("eePos_pin"), 3);
+  ee3DofVel_des_ = legged_base::splitVectors<Vector3d>(des_state_.custom_state("eeVel_pin"), 3);
 }
 
 Task WbcBase::formulateFloatingBaseEomTask() {
@@ -227,10 +225,10 @@ Task WbcBase::formulateFootZTask() {
     std::cout << "[WbcBase] FootZTask " << std::endl;
     std::cout << "[WbcBase] a:\n" << a << std::endl;
     std::cout << "[WbcBase] b: " << b.transpose() << std::endl;
-    std::cout << "[WbcBase] ee3DofPos_des: " << concatVectors(ee3DofPos_des_).transpose() << std::endl;
-    std::cout << "[WbcBase] ee3DofPos_act: " << concatVectors(ee3DofPos_act_).transpose() << std::endl;
-    std::cout << "[WbcBase] ee3DofVel_des: " << concatVectors(ee3DofVel_des_).transpose() << std::endl;
-    std::cout << "[WbcBase] ee3DofVel_act: " << concatVectors(ee3DofVel_act_).transpose() << std::endl;
+    std::cout << "[WbcBase] ee3DofPos_des: " << legged_base::concatVectors(ee3DofPos_des_).transpose() << std::endl;
+    std::cout << "[WbcBase] ee3DofPos_act: " << legged_base::concatVectors(ee3DofPos_act_).transpose() << std::endl;
+    std::cout << "[WbcBase] ee3DofVel_des: " << legged_base::concatVectors(ee3DofVel_des_).transpose() << std::endl;
+    std::cout << "[WbcBase] ee3DofVel_act: " << legged_base::concatVectors(ee3DofVel_act_).transpose() << std::endl;
   }
   
   footZTask_ = Task(a, b, matrix_t(), vector_t());
@@ -446,12 +444,12 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
     param.constraintList_ = cfg["constraintList"].as<vector<string>>();
 
     // === Base Acceleration Task ===
-    param.baseAccelKp_ = yamlToEigenVector(cfg["baseAccelTask"]["baseAcc_kp"]);
-    param.baseAccelKd_ = yamlToEigenVector(cfg["baseAccelTask"]["baseAcc_kd"]);
+    param.baseAccelKp_ = legged_base::yamlToEigenVec(cfg["baseAccelTask"]["baseAcc_kp"]);
+    param.baseAccelKd_ = legged_base::yamlToEigenVec(cfg["baseAccelTask"]["baseAcc_kd"]);
 
     // === COM Acceleration Task ===
-    param.comKp_ = yamlToEigenVector(cfg["comTask"]["com_kp"]);
-    param.comKd_ = yamlToEigenVector(cfg["comTask"]["com_kd"]);
+    param.comKp_ = legged_base::yamlToEigenVec(cfg["comTask"]["com_kp"]);
+    param.comKd_ = legged_base::yamlToEigenVec(cfg["comTask"]["com_kd"]);
 
     // === Swing Leg Task ===
     param.swingKp_ = cfg["swingLegTask"]["kp"].as<double>();
@@ -468,13 +466,13 @@ void WbcBase::loadWbcParam(const std::string& motionFile, bool verbose)
     // === Weight (optional) ===
     if (cfg["weight"]) {
         const auto& w = cfg["weight"];
-        param.weightBaseAccel_    = yamlToEigenVector(w["baseAccel"]);
-        param.weightCom_ = yamlToEigenVector(w["com"]);
+        param.weightBaseAccel_    = legged_base::yamlToEigenVec(w["baseAccel"]);
+        param.weightCom_ = legged_base::yamlToEigenVec(w["com"]);
         param.weightContactForce_ = vector_t::Zero(3*leggedModel_.nContacts3Dof());
         param.weightNoContactMotion_ = vector_t::Zero(3*leggedModel_.nContacts3Dof());
         for (size_t i=0; i<leggedModel_.nContacts3Dof(); ++i) {
-          param.weightContactForce_.segment(3*i,3) = yamlToEigenVector(w["contactForce"]);
-          param.weightNoContactMotion_.segment(3*i,3) = yamlToEigenVector(w["noContactMotion"]);
+          param.weightContactForce_.segment(3*i,3) = legged_base::yamlToEigenVec(w["contactForce"]);
+          param.weightNoContactMotion_.segment(3*i,3) = legged_base::yamlToEigenVec(w["noContactMotion"]);
         }
         param.weightSumFz_        = w["SumFz"].as<double>();
         param.weightSwingLeg_     = w["swingLeg"].as<double>();
@@ -585,4 +583,4 @@ void WbcBase::log(const vector_t& x){
     CsvLogger& logger = CsvLogger::getInstance();
 }
 
-}  // namespace LeggedAI
+}  // namespace legged_wbc

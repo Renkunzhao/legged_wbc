@@ -10,7 +10,7 @@
 
 #include <utility>
 
-namespace LeggedAI {
+namespace legged_wbc {
 
 class Task {
  public:
@@ -70,4 +70,4 @@ class Task {
   }
 };
 
-}  // namespace LeggedAI
+}  // namespace legged_wbc

@@ -6,7 +6,7 @@
 #include "legged_wbc/WbcBase.h"
 #include <string>
 
-namespace LeggedAI {
+namespace legged_wbc {
 
 class WeightedWbc : public WbcBase {
  public:
@@ -46,4 +46,4 @@ class WeightedWbc : public WbcBase {
   }
 };
 
-}  // namespace LeggedAI
+}  // namespace legged_wbc
