@@ -9,45 +9,21 @@ constraintList:
 
 weight:
   baseAccel: [0., 0., 0., 0., 0., 0.]
-  com:  
-    - 0.1
-    - 0.1
-    - 0.5
-    - 5.0
-    - 5.0
-    - 1.0
-  contactForce: 
-    - 0.0
-    - 0.0
-    - 0.0
+  com:       [0.1, 0.1, 0.5, 5.0, 5.0, 1.0]
+  contactForce: [0.0, 0.0, 0.0]
   SumFz: 0.25
   swingLeg: 0
   jointTorque: 0
-  noContactMotion:
-    - 0.0
-    - 0.0
-    - 0.0
-  footZ: 1.
+  noContactMotion: [0.0, 0.0, 0.0]
+  footZ: 0.
 
 baseAccelTask:
   baseAcc_kp: [0., 0., 0., 0., 0., 0.]
   baseAcc_kd: [0., 0., 0., 0., 0., 0.]
 
 comTask:
-  com_kp:
-    - 1.0       # p_base_x
-    - 9.0       # p_base_y
-    - 0.0       # p_base_z
-    - 0.0       # x
-    - 0.0       # y
-    - 0.0       # z
-  com_kd:
-    - 10.0     # vx
-    - 10.0     # vy
-    - 150.0    # vz
-    - 10.0     # wx
-    - 10.0     # wy
-    - 10.0     # wz
+  com_kp: [1.0, 9.0, 0.0, 0.0, 0.0, 0.0]
+  com_kd: [10.0, 10.0, 150.0, 10.0, 10.0, 10.0]
 
 swingLegTask:
   kp: 0
