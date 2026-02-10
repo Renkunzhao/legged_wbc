@@ -37,6 +37,8 @@ vector_t WeightedWbc::update(LeggedState des_state, LeggedState real_state,
     // PD method
     weighedTask = formulateWeightedTasks(period, "pd");
   } else {
+    std::cout << "[WeightedWbc] Unknown control method: " << method << ". Return zero command." << std::endl;
+    CsvLogger::getInstance().update("qpStatus", -30);
     return vector_t::Zero(getNumDecisionVars());
   }
 
@@ -44,11 +46,14 @@ vector_t WeightedWbc::update(LeggedState des_state, LeggedState real_state,
   vector_t g = -weighedTask.a_.transpose() * weighedTask.b_;
 
   // --- 选择解算器后端 ---
-  vector_t qpSol;
+  vector_t qpSol = vector_t::Zero(getNumDecisionVars());
   if (qpSolver_ == "osqp") {
     qpSol = solveWithOSQP(H, g, A, lbA, ubA, /*hessian_reg=*/1e-9);
   } else if (qpSolver_ == "qpOASES") { // 默认 qpoases
     qpSol = solveWithQPOases(H, g, A, lbA, ubA, /*maxWsr=*/20);
+  } else {
+    std::cout << "[WeightedWbc] Unknown qpSolver: " << qpSolver_ << ". Return zero command." << std::endl;
+    CsvLogger::getInstance().update("qpStatus", -31);
   }
 
   return qpSol;
@@ -167,8 +172,10 @@ Task WeightedWbc::formulateConstraints() {
 }
 
 Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
+  (void)period;
   if (method == "centroidal") {
-    return Task();
+    // Placeholder for centroidal objective. Keep dimensions consistent.
+    return Task(getNumDecisionVars());
     // return formulateSwingLegTask() * wbcParam_.weightSwingLeg_ + formulateBaseAccelTask(period) * wbcParam_.weightBaseAccel_ +
     //       formulateContactForceTask() * wbcParam_.weightContactForce_;
   } else if (method == "pd") {
@@ -181,6 +188,8 @@ Task WeightedWbc::formulateWeightedTasks(scalar_t period, std::string method) {
           + formulateNoContactMotionTask() * wbcParam_.weightNoContactMotion_
           + formulateFootZTask() * wbcParam_.weightFootZ_;
   }
+  std::cout << "[WeightedWbc] Unknown weighted task method: " << method << ". Use zero objective." << std::endl;
+  return Task(getNumDecisionVars());
 }
 
 void WeightedWbc::loadTasksSetting(const std::string& configFile) {

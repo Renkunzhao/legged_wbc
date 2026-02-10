@@ -70,7 +70,13 @@ void WbcBase::updateMeasured() {
   // EOM Task & SwingLegTask & NoContactMotionTask
   pinocchio::computeJointJacobians(model, data);
   jMeasured_ = matrix_t(3 * leggedModel_.nContacts3Dof(), leggedModel_.nDof());
-  jMeasured_ = leggedModel_.jacobian3Dof(qMeasured_);
+  jMeasured_.setZero();
+  for (size_t i = 0; i < leggedModel_.nContacts3Dof(); ++i) {
+    Eigen::Matrix<scalar_t, 6, Eigen::Dynamic> jac;
+    jac.setZero(6, leggedModel_.nDof());
+    pinocchio::getFrameJacobian(model, data, leggedModel_.contact3DofIds()[i], pinocchio::LOCAL_WORLD_ALIGNED, jac);
+    jMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) = jac.template topRows<3>();
+  }
 
   // SwingLegTask & NoContactMotionTask
   pinocchio::computeJointJacobiansTimeVariation(model, data, qMeasured_, vMeasured_);
@@ -155,16 +161,14 @@ Task WbcBase::formulateTorqueLimitsTask() {
 }
 
 Task WbcBase::formulateNoContactMotionTask() {
-  matrix_t a(3 * numContacts_, numDecisionVars_);
+  matrix_t a(3 * leggedModel_.nContacts3Dof(), numDecisionVars_);
   vector_t b(a.rows());
   a.setZero();
   b.setZero();
-  size_t j = 0;
   for (size_t i = 0; i < leggedModel_.nContacts3Dof(); i++) {
     if (contactFlag_[i]) {
-      a.block(3 * j, 0, 3, leggedModel_.nDof()) = jMeasured_.block(3 * i, 0, 3, leggedModel_.nDof());
-      b.segment(3 * j, 3) = -djMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) * vMeasured_;
-      j++;
+      a.block(3 * i, 0, 3, leggedModel_.nDof()) = jMeasured_.block(3 * i, 0, 3, leggedModel_.nDof());
+      b.segment(3 * i, 3) = -djMeasured_.block(3 * i, 0, 3, leggedModel_.nDof()) * vMeasured_;
     }
   }
 
