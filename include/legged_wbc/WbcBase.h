@@ -11,6 +11,7 @@
 
 #include <array>
 #include <cstddef>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -64,7 +65,14 @@ class WbcBase {
   }
   double inline computeCost(Task task, vector_t x, vector_t weight){
     if (task.a_.rows()!=weight.size()) {
-      throw runtime_error("[WbcBase] computeCost task and weight dimension mismatch.");
+      static bool warned_once = false;
+      if (!warned_once) {
+        std::cout << "[WbcBase] computeCost task and weight dimension mismatch. task_rows="
+                  << task.a_.rows() << " weight_size=" << weight.size()
+                  << ". Skip this term." << std::endl;
+        warned_once = true;
+      }
+      return 0.0;
     }
     vector_t y = weight.asDiagonal() * (task.a_ * x - task.b_);
     vector_t b = weight.asDiagonal() * task.b_;

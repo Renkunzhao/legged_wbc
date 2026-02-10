@@ -16,6 +16,6 @@ qpSolver: osqp      # osqp qpOASES
 motionList:
   - stand
   - jump
-  - lift_leg
+  - gait
   - hop
 

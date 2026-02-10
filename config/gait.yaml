@@ -1,4 +1,4 @@
-motionName: lift_leg
+motionName: gait
 
 constraintList:
   - floatingBaseEom
